@@ -1,41 +1,62 @@
 # Context Retrieval Agent Test
 
-This repository is a testing ground for context-retrieval backend work.
+This repository is a testing ground for context-retrieval work.
 
 It contains:
 
-- A basic frontend with:
+- A basic React frontend with:
   - chat UI
   - file upload support
-- A backend that:
-  - powers an agent using LangGraph
-  - calls a context backend API for retrieval and context operations
+- A Mastra-based agent service that:
+  - powers agent behavior/orchestration
+  - calls your external context backend API for retrieval/context operations
 
 ## Goal
 
 Use this project as a sandbox to validate end-to-end behavior between:
 
 - user interactions (chat + uploaded files)
-- agent orchestration (LangGraph)
-- external context backend integration
+- agent orchestration (Mastra)
+- external backend integration
 
-## Planned Architecture
+## Repository Structure
 
-### Frontend
+- `frontend/`: React + Vite app (runs on `http://localhost:3000`)
+- `backend/`: Agent service (Mastra + Express, default `http://localhost:4111`)
+- External backend (your service): expected at `http://localhost:8000`
 
-- Minimal chat interface
-- File upload flow for attaching context/data
-- Requests sent to backend agent endpoint(s)
+## Local Setup
 
-### Backend
+1. Install dependencies:
 
-- LangGraph-based agent workflow
-- API layer for frontend requests
-- Integration client for context backend API
-- Response streaming or standard response handling (as needed)
+```bash
+npm install
+```
 
-## Development Focus
+2. Run frontend:
 
-- Fast iteration for backend context retrieval experiments
-- Clear integration boundaries between frontend, agent orchestration, and context services
-- Easy local testing of chat + file-driven context flows
+```bash
+npm run dev:frontend
+```
+
+3. Run agent service:
+
+```bash
+npm run dev:backend
+```
+
+## Environment
+
+Root `.env` is used by the agent service.
+
+- `PORT=4111` (agent service)
+- `FRONTEND_ORIGIN=http://localhost:3000`
+- `CONTEXT_API_BASE_URL=http://localhost:8000` (your external backend)
+
+Frontend env (optional) can be set via `frontend/.env`:
+
+```bash
+VITE_AGENT_API_BASE_URL=http://localhost:4111
+VITE_CONTEXT_API_BASE_URL=http://localhost:8000/
+VITE_CONTEXT_SCOPE=
+```
