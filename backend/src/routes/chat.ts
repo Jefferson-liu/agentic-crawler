@@ -11,13 +11,23 @@ export const chatRouter = Router();
 chatRouter.post('/', async (req, res) => {
   const parsed = chatBody.safeParse(req.body);
   if (!parsed.success) {
+    console.error('Invalid request body:', parsed.error);
     return res.status(400).json({ error: 'Invalid request body' });
   }
 
+  const userMessage = parsed.data.message;
+  console.log(`[Chat] Received message: "${userMessage}"`);
+
   try {
-    const result = await contextAgent.generate(parsed.data.message);
+    console.log('[Chat] Generating response...');
+    const result = await contextAgent.generate(userMessage);
+    console.log(`[Chat] Response generated: "${result.text}"`);
     return res.json({ reply: result.text });
-  } catch {
-    return res.status(500).json({ error: 'Agent generation failed' });
+  } catch (error) {
+    console.error('[Chat] Agent generation failed:', error);
+    return res.status(500).json({ 
+      error: 'Agent generation failed',
+      details: error instanceof Error ? error.message : String(error)
+    });
   }
 });
