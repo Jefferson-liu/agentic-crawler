@@ -1,0 +1,249 @@
+{
+  "version": 1,
+  "repo_address": "/mnt/c/Users/Jefferson Liu/Desktop/programming stuff/context-retrieval-poc/context-retrieval-agent-test",
+  "fingerprint": "git-aware-v1:14d928c02b8b96a945f006ffb65756deafd37167:69aca078b8ae702161689351b0ae9500884724e243844ad7668f4bc693c492be",
+  "generated_at": "2026-03-05T00:19:48.365Z",
+  "expected_subjects": [
+    "client/App.tsx",
+    "client/components/ChatList.tsx",
+    "client/components/ChatWindow.tsx",
+    "client/index.tsx",
+    "postcss.config.js",
+    "server/agent/context-agent.ts",
+    "server/ai-client.ts",
+    "server/ast-indexer.ts",
+    "server/chat-store.ts",
+    "server/context-summary.ts",
+    "server/custom-tools.ts",
+    "server/file-summary-store.ts",
+    "server/path-normalization.ts",
+    "server/prompt-loader.ts",
+    "server/reference-graph.ts",
+    "server/repo-cost-ledger.ts",
+    "server/repo-fingerprint.ts",
+    "server/repo-knowledge-team.ts",
+    "server/repo-progress-bus.ts",
+    "server/scripts/test-mcp.ts",
+    "server/server.ts",
+    "server/session.ts",
+    "server/source-discovery.ts",
+    "server/types.ts",
+    "tailwind.config.js",
+    "vite.config.ts"
+  ],
+  "summaries": {
+    "client/index.tsx": {
+      "overall_summary": "Entry point for a React application that renders the main App component into the DOM.",
+      "file_cluster": [
+        "React application root",
+        "Client-side entry point"
+      ],
+      "important_relationships": [
+        "./App",
+        "react",
+        "react-dom/client"
+      ],
+      "group_function": "Initializes and renders the root React application component.",
+      "raw_output": "The index.tsx file is a standard React application entry point. It imports the main App component, creates a root render using React DOM, and renders the App into the specified container element. Imports suggest a typical React web application setup.",
+      "updated_at": "2026-03-05T00:20:03.871Z"
+    },
+    "server/ast-indexer.ts": {
+      "overall_summary": "AST indexer module for parsing and extracting references from source code files across multiple programming languages using tree-sitter.",
+      "file_cluster": [
+        "AST parsing",
+        "Source code analysis",
+        "Reference extraction"
+      ],
+      "important_relationships": [
+        "./reference-graph",
+        "./source-discovery"
+      ],
+      "group_function": "Provides a comprehensive repository source code indexing mechanism with support for TypeScript, JavaScript, Python, and other languages.",
+      "raw_output": "The ast-indexer.ts file is a sophisticated source code analysis tool that uses tree-sitter to parse Abstract Syntax Trees (ASTs) for multiple programming languages. It extracts file references, supports various language parsers, and generates a structured index of repository source files.",
+      "updated_at": "2026-03-05T00:22:08.380Z"
+    },
+    "server/chat-store.ts": {
+      "overall_summary": "A persistent chat store implementation that manages chat and message data, with file-based storage and CRUD operations using a singleton pattern.",
+      "file_cluster": [
+        "persistence",
+        "data-management",
+        "chat-storage"
+      ],
+      "important_relationships": [
+        "./types.js"
+      ],
+      "group_function": "Manages the lifecycle and storage of chat sessions and messages with automatic persistence to disk.",
+      "raw_output": "The ChatStore class provides a robust implementation for storing and managing chat sessions. It uses file-based persistence, supports creating, reading, updating, and deleting chats and messages, and includes features like auto-generating chat titles and tracking message costs.",
+      "updated_at": "2026-03-05T00:30:51.393Z"
+    },
+    "server/context-summary.ts": {
+      "overall_summary": "Provides utility functions for reading and writing a context summary markdown file in a data directory.",
+      "file_cluster": [
+        "file-io",
+        "utility",
+        "context-management"
+      ],
+      "important_relationships": [
+        "node:fs/promises",
+        "node:path"
+      ],
+      "group_function": "Manages persistent storage and retrieval of a repository context summary in markdown format.",
+      "raw_output": "The file contains three main functions: getContextSummaryPath() returns the fixed path for the summary, writeContextSummary() writes a summary to a markdown file, and readContextSummary() reads the summary with error handling for non-existent files.",
+      "updated_at": "2026-03-05T00:23:17.620Z"
+    },
+    "server/path-normalization.ts": {
+      "overall_summary": "Provides path normalization utilities for converting Windows paths to WSL/POSIX paths, handling cross-platform path differences.",
+      "file_cluster": [
+        "path-utils",
+        "cross-platform-compatibility"
+      ],
+      "important_relationships": [],
+      "group_function": "Handles path normalization across Windows and WSL/Linux environments, ensuring consistent path representation.",
+      "raw_output": "The file contains path normalization functions that convert Windows paths to WSL/POSIX paths, with special handling for different platform scenarios and path formats.",
+      "updated_at": "2026-03-05T00:24:03.463Z"
+    },
+    "server/prompt-loader.ts": {
+      "overall_summary": "A utility module for loading text-based prompt files securely from a predefined directory, with both synchronous and asynchronous loading methods.",
+      "file_cluster": [
+        "server",
+        "utilities",
+        "file loading"
+      ],
+      "important_relationships": [
+        "node:fs/promises",
+        "node:fs",
+        "node:path"
+      ],
+      "group_function": "Provides secure, path-traversal-protected prompt file loading for server-side applications.",
+      "raw_output": "The prompt-loader.ts file implements a secure prompt loading mechanism with path resolution and safety checks. It offers two main functions: load_prompt (async) and load_prompt_sync (sync) to read prompt files from a specific directory.",
+      "updated_at": "2026-03-05T00:24:14.996Z"
+    },
+    "server/repo-cost-ledger.ts": {
+      "overall_summary": "A comprehensive cost tracking system for repository operations, managing detailed ledgers of tool calls, task costs, and run progress across multiple repository interactions.",
+      "file_cluster": [
+        "cost tracking",
+        "repository management",
+        "logging"
+      ],
+      "important_relationships": [
+        "./repo-progress-bus"
+      ],
+      "group_function": "Implements a persistent ledger system to track and record cost, tool usage, and progress details for repository-level operations.",
+      "raw_output": "The RepoCostLedger class provides a robust mechanism for tracking repository interaction costs, including tool calls, task updates, and permission denials. It persists data to a JSON file, maintains limits on historical entries, and supports detailed cost snapshots.",
+      "updated_at": "2026-03-05T00:25:28.693Z"
+    },
+    "server/repo-progress-bus.ts": {
+      "overall_summary": "A TypeScript module defining a type-safe event bus for tracking repository processing progress, with detailed event types and a subscribe-emit pattern.",
+      "file_cluster": [
+        "event-bus",
+        "progress-tracking",
+        "repository-processing"
+      ],
+      "important_relationships": [],
+      "group_function": "Centralized event communication for repository knowledge generation pipeline",
+      "raw_output": "The file defines a robust event bus system for tracking repository processing stages, costs, and task statuses. It includes comprehensive type definitions for progress events, queue states, and provides a flexible subscription mechanism for monitoring repository knowledge generation pipeline events.",
+      "updated_at": "2026-03-05T00:25:55.897Z"
+    },
+    "server/server.ts": {
+      "overall_summary": "Main Express and WebSocket server for a chat application, handling REST API endpoints for chat management, cost tracking, and real-time WebSocket communication.",
+      "file_cluster": [
+        "server",
+        "web-server",
+        "chat-application"
+      ],
+      "important_relationships": [
+        "./chat-store.js",
+        "./session.js",
+        "./repo-cost-ledger.js"
+      ],
+      "group_function": "Provides the core server-side infrastructure for a chat application with WebSocket and REST API support, including session management and cost tracking.",
+      "raw_output": "The server.ts file implements a comprehensive chat application backend with Express REST API and WebSocket support. It manages chat sessions, provides endpoints for chat operations, and includes a cost tracking mechanism for assistant messages and repository pipeline runs.",
+      "updated_at": "2026-03-05T00:26:32.503Z"
+    },
+    "server/source-discovery.ts": {
+      "overall_summary": "A utility module for source file discovery and language inference in a multi-language project, providing functions to collect and filter source files across various programming languages.",
+      "file_cluster": [
+        "source-code-discovery",
+        "file-system-utilities"
+      ],
+      "important_relationships": [
+        "node:fs/promises",
+        "node:path"
+      ],
+      "group_function": "Provides robust source file collection and filtering utilities with support for multiple programming language extensions.",
+      "raw_output": "The source-discovery.ts file defines comprehensive utilities for discovering source files across multiple programming languages. It includes constants for supported source extensions, ignored directories, and functions to collect, filter, and analyze source files in a project.",
+      "updated_at": "2026-03-05T00:27:11.171Z"
+    },
+    "vite.config.ts": {
+      "overall_summary": "Vite configuration file for a React project with local development server proxy and custom build settings.",
+      "file_cluster": [
+        "frontend configuration",
+        "development environment"
+      ],
+      "important_relationships": [
+        "client",
+        "dist"
+      ],
+      "group_function": "Configures build and development server settings for the React client application.",
+      "raw_output": "The Vite configuration sets up a React project with a local development server that proxies API and WebSocket connections to localhost:4111, and configures the build output directory to be one level up from the client source directory.",
+      "updated_at": "2026-03-05T00:35:06.593Z"
+    },
+    "client/components/ChatWindow.tsx": {
+      "overall_summary": "A comprehensive React component for a chat interface with advanced subagent progress tracking and real-time pipeline events visualization.",
+      "file_cluster": [
+        "react",
+        "chat",
+        "ui",
+        "subagent-tracking"
+      ],
+      "important_relationships": [
+        "react"
+      ],
+      "group_function": "Render chat interface with detailed task and pipeline progress monitoring for a context retrieval agent",
+      "raw_output": "The ChatWindow.tsx file is a sophisticated React component that provides a comprehensive chat interface with multiple sub-components. It includes:\n\n1. Message rendering (user, assistant, tool use)\n2. Real-time pipeline events tracking\n3. Subagent progress sidebar\n4. Input form with send and stop functionality\n\nKey features include live pipeline event feeds, task status tracking, and detailed telemetry display for subagent operations. The component is designed to provide transparency into the complex process of context retrieval and agent task execution.",
+      "updated_at": "2026-03-05T00:29:03.325Z"
+    },
+    "postcss.config.js": {
+      "overall_summary": "PostCSS configuration file that sets up Tailwind CSS and Autoprefixer plugins for CSS processing.",
+      "file_cluster": [
+        "configuration",
+        "styling"
+      ],
+      "important_relationships": [],
+      "group_function": "Manages CSS post-processing and vendor prefixing for the project",
+      "raw_output": "The postcss.config.js file defines a standard configuration for PostCSS, including Tailwind CSS for utility-first styling and Autoprefixer for adding vendor prefixes to CSS rules.",
+      "updated_at": "2026-03-05T00:29:38.274Z"
+    },
+    "server/reference-graph.ts": {
+      "overall_summary": "A TypeScript module for managing a reference graph, providing utilities for storing, loading, and manipulating reference nodes with file, class, and function types.",
+      "file_cluster": [
+        "Reference Graph Management",
+        "Persistence Layer"
+      ],
+      "important_relationships": [
+        "node:fs/promises",
+        "node:path"
+      ],
+      "group_function": "Provides a robust system for tracking and storing code references, AST data, and summaries across a repository.",
+      "raw_output": "The reference-graph.ts file defines a comprehensive system for managing code references. It includes type definitions, functions for normalizing and storing reference nodes, and async utilities for reading and writing reference graph data to a JSON file.",
+      "updated_at": "2026-03-05T00:32:35.629Z"
+    },
+    "server/scripts/test-mcp.ts": {
+      "overall_summary": "A comprehensive test harness script for MCP (Machine Code Processor) repository knowledge generation, supporting both tool and agent-based testing modes.",
+      "file_cluster": [
+        "testing",
+        "repository-knowledge",
+        "cli-tools"
+      ],
+      "important_relationships": [
+        "../custom-tools",
+        "../file-summary-store",
+        "../reference-graph",
+        "@anthropic-ai/claude-agent-sdk"
+      ],
+      "group_function": "Provides a robust testing framework for repository knowledge generation processes, with support for tool debugging, agent subagent testing, and artifact validation.",
+      "raw_output": "The test-mcp.ts script is a sophisticated testing harness for the repository knowledge generation system. It provides two primary modes of operation:\n\n1. Tool Debug Mode: Allows granular testing of individual MCP tools with detailed logging and optional write operations.\n2. Agent Subagent Mode: Runs a full repository knowledge generation pipeline through the Claude agent SDK, with comprehensive validation checks.\n\nKey features include CLI argument parsing, tool and agent invocation, artifact validation, and extensive logging of the knowledge generation process.",
+      "updated_at": "2026-03-05T00:33:19.296Z"
+    }
+  }
+}

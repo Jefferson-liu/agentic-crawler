@@ -1,18 +1,49 @@
 {
   "name": "context-retrieval-agent-test",
-  "private": true,
-  "version": "0.1.0",
-  "workspaces": [
-    "frontend",
-    "backend"
-  ],
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A simple chat application with Claude Agent SDK",
   "scripts": {
-    "dev:frontend": "npm run dev --workspace frontend",
-    "dev:backend": "npm run dev --workspace backend",
-    "build": "npm run build --workspace frontend && npm run build --workspace backend",
-    "typecheck": "npm run typecheck --workspace frontend && npm run typecheck --workspace backend"
+    "dev": "concurrently -k --names \"server,client\" --prefix-colors \"blue,green\" \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "tsx watch server/server.ts",
+    "dev:client": "vite --port 5173",
+    "start": "tsx server/server.ts",
+    "test:mcp": "tsx server/scripts/test-mcp.ts --mode agent",
+    "test:mcp:agent": "tsx server/scripts/test-mcp.ts --mode agent",
+    "test:mcp:tool": "tsx server/scripts/test-mcp.ts --mode tool",
+    "build": "vite build"
   },
   "dependencies": {
-    "http-proxy-middleware": "^3.0.5"
+    "@anthropic-ai/claude-agent-sdk": "^0.1.53",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-use-websocket": "^4.13.0",
+    "tree-sitter": "^0.21.1",
+    "tree-sitter-javascript": "^0.23.1",
+    "tree-sitter-python": "^0.21.0",
+    "tree-sitter-typescript": "^0.23.2",
+    "uuid": "^10.0.0",
+    "ws": "^8.18.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.5.12",
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.0.0",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.4.0"
   }
 }

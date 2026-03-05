@@ -1,35 +1,30 @@
-# Environment files
-.env
-.env.*
-!.env.example
-
-# Node / frontend
+# Dependencies
 node_modules/
+
+# Build output
 dist/
-build/
-.next/
-.nuxt/
-.svelte-kit/
-coverage/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 
-# Python / backend
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.venv/
-venv/
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# OS / editor
+# OS
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/
 
+# TypeScript cache
+*.tsbuildinfo
+
+# Local chat persistence
+data/chats.json

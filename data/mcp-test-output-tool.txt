@@ -1,0 +1,74 @@
+=== MCP TEST HARNESS RUN HEADER ===
+StartedAt: 2026-03-05T00:19:46.952Z
+Mode: tool
+Repo: /mnt/c/Users/Jefferson Liu/Desktop/programming stuff/context-retrieval-poc/context-retrieval-agent-test
+Output: /mnt/c/Users/Jefferson Liu/Desktop/programming stuff/context-retrieval-poc/context-retrieval-agent-test/data/mcp-test-output-tool.txt
+Argv: [
+  "--mode",
+  "tool",
+  "--repo",
+  ".",
+  "--tool",
+  "run_repo_knowledge_team_pipeline",
+  "--args",
+  "{\"repo_address\":\".\",\"force_refresh\":true,\"chat_id\":\"pipeline-heartbeat-test\"}"
+]
+
+=== run_repo_knowledge_team_pipeline ===
+args:
+{
+  "repo_address": ".",
+  "force_refresh": true,
+  "chat_id": "pipeline-heartbeat-test"
+}
+raw result:
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"success\":true,\"cache_used\":false,\"repo_address\":\"/mnt/c/Users/Jefferson Liu/Desktop/programming stuff/context-retrieval-poc/context-retrieval-agent-test\",\"force_refresh\":true,\"total_subjects\":26,\"completed_subjects\":15,\"missing_count\":11,\"missing_subjects\":[\"client/App.tsx\",\"client/components/ChatList.tsx\",\"server/agent/context-agent.ts\",\"server/ai-client.ts\",\"server/custom-tools.ts\",\"server/file-summary-store.ts\",\"server/repo-fingerprint.ts\",\"server/repo-knowledge-team.ts\",\"server/session.ts\",\"server/types.ts\",\"tailwind.config.js\"],\"no_supported_files\":false,\"message\":\"Repository knowledge team pipeline completed with partial file summary coverage.\",\"fallback_used\":false,\"cache_invalid_reasons\":[\"force_refresh_requested\",\"store_repo_mismatch\",\"store_fingerprint_mismatch\",\"ref_graph_repo_mismatch\"],\"run_id\":\"9a1ee690-0a60-439c-8b65-2e08655dcc8c\",\"queue_total\":26,\"queue_completed\":12,\"queue_failed\":14,\"retry_count\":19,\"queue_cost_usd\":1.1202483000000003,\"context_cost_usd\":0.05129642999999999,\"total_cost_usd\":1.1715447300000004,\"avg_cost_per_completed_file_usd\":0.09335402500000002,\"duration_ms\":1075958}"
+    }
+  ]
+}
+parsed payload:
+{
+  "success": true,
+  "cache_used": false,
+  "repo_address": "/mnt/c/Users/Jefferson Liu/Desktop/programming stuff/context-retrieval-poc/context-retrieval-agent-test",
+  "force_refresh": true,
+  "total_subjects": 26,
+  "completed_subjects": 15,
+  "missing_count": 11,
+  "missing_subjects": [
+    "client/App.tsx",
+    "client/components/ChatList.tsx",
+    "server/agent/context-agent.ts",
+    "server/ai-client.ts",
+    "server/custom-tools.ts",
+    "server/file-summary-store.ts",
+    "server/repo-fingerprint.ts",
+    "server/repo-knowledge-team.ts",
+    "server/session.ts",
+    "server/types.ts",
+    "tailwind.config.js"
+  ],
+  "no_supported_files": false,
+  "message": "Repository knowledge team pipeline completed with partial file summary coverage.",
+  "fallback_used": false,
+  "cache_invalid_reasons": [
+    "force_refresh_requested",
+    "store_repo_mismatch",
+    "store_fingerprint_mismatch",
+    "ref_graph_repo_mismatch"
+  ],
+  "run_id": "9a1ee690-0a60-439c-8b65-2e08655dcc8c",
+  "queue_total": 26,
+  "queue_completed": 12,
+  "queue_failed": 14,
+  "retry_count": 19,
+  "queue_cost_usd": 1.1202483000000003,
+  "context_cost_usd": 0.05129642999999999,
+  "total_cost_usd": 1.1715447300000004,
+  "avg_cost_per_completed_file_usd": 0.09335402500000002,
+  "duration_ms": 1075958
+}

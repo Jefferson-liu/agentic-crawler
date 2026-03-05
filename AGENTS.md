@@ -1,28 +1,31 @@
 ## Project Agent Instructions
 
-This repository is a **TypeScript-first** project.
+This repository is a **TypeScript-first implementation project**.
+Repository analysis targets are **language-agnostic** and may be any codebase language.
 
 ## Terminology (Critical)
 
 - When the user says **"backend"**, treat that as the **external context backend** (not implemented in this repo).
-- In this repo, `backend/` means the **agent service layer** only (Mastra workflows, tools, orchestration, and API surface for the frontend).
+- In this repo, `backend/` means the **agent service layer** only (Claude-Agent-SDK workflows, tools, orchestration, and API surface for the frontend).
 - Do not describe `backend/` as the source of truth for storage/retrieval infrastructure; it is a client/orchestrator of the external backend.
 
 ## Stack Defaults
 
 - Frontend framework: **React**
-- Agent service framework: **Mastra**
-- Primary language across frontend and backend: **TypeScript**
+- Agent service framework: **Claude-Agent-SDK**
+- Primary implementation language in this repo: **TypeScript**
+- Analysis scope for target repositories: **any language supported by the analyzer**
 
 ## Repository Structure
 
 - `frontend/`: React app (chat UI + file upload UI).
-- `backend/`: Mastra-powered agent service/API layer for orchestration.
+- `backend/`: Claude-agent-sdk powered agent backend
 - Scope new work to the correct folder instead of mixing frontend/backend files in repo root.
 
 ## Implementation Rules
 
-- Prefer TypeScript for all new code, scripts, and examples.
+- Prefer TypeScript for new code in this repo unless explicitly requested otherwise.
+- Do not restrict repository analysis features to TypeScript-only inputs.
 - Do not introduce Python services unless explicitly requested.
 - Keep frontend/agent-service boundaries clear.
 - Frontend (`frontend/`) handles chat UI and file upload UX.
@@ -31,7 +34,7 @@ This repository is a **TypeScript-first** project.
 ## Agent Service Direction
 
 - Place agent service implementation files under `backend/`.
-- Use Mastra patterns for agent setup, tools, and workflow orchestration.
+- Use Claude agent sdk patterns for agent setup, tools, and workflow orchestration.
 - The agent service should expose clean API endpoints for the React app.
 - Context retrieval and related operations must be delegated to the external backend API.
 

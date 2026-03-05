@@ -1,0 +1,13 @@
+{
+  "overall_summary": "TypeScript type definitions for WebSocket communication, chat management, and repository progress tracking in a context retrieval system",
+  "file_cluster": [
+    "WebSocket message interfaces",
+    "Chat and message data models", 
+    "Repository progress tracking"
+  ],
+  "important_relationships": [
+    "WebSocket message types",
+    "Chat and message structures"
+  ],
+  "group_function": "Defines type contracts for messaging, chat state, and system event tracking across a context retrieval agent"
+}

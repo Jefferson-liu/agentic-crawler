@@ -1,0 +1,312 @@
+{
+  "version": 1,
+  "repo_address": "/mnt/c/Users/Jefferson Liu/Desktop/programming stuff/context-retrieval-poc/context-retrieval-backend",
+  "fingerprint": "git-aware-v1:ce29fe47d2e0025c57c56754ca3506052f2fbec0:27b5cb94a0d13412d354faccbcbda86ef75bc64e1d5199c6650ece26871cda27",
+  "generated_at": "2026-03-04T19:58:28.745Z",
+  "expected_subjects": [
+    "config/__init__.py",
+    "config/settings.py",
+    "infrastructure/__init__.py",
+    "infrastructure/database.py",
+    "infrastructure/graphiti/__init__.py",
+    "infrastructure/graphiti/graphiti_client.py",
+    "infrastructure/graphiti/ontology.py",
+    "infrastructure/models/__init__.py",
+    "infrastructure/models/data.py",
+    "infrastructure/repositories/__init__.py",
+    "infrastructure/repositories/chunk_repository.py",
+    "infrastructure/repositories/data_repository.py",
+    "infrastructure/repositories/graphiti_episode_repository.py",
+    "main.py",
+    "routers/__init__.py",
+    "routers/data_router.py",
+    "routers/document_router.py",
+    "routers/scope.py",
+    "routers/search_router.py",
+    "routers/thread_router.py",
+    "schemas/__init__.py",
+    "schemas/data.py",
+    "schemas/thread.py",
+    "scripts/__init__.py",
+    "scripts/reset_storage.py",
+    "services/__init__.py",
+    "services/chunking.py",
+    "services/data_service.py",
+    "services/search_service.py",
+    "services/thread_service.py",
+    "tests/__init__.py"
+  ],
+  "summaries": {
+    "infrastructure/database.py": {
+      "overall_summary": "Database infrastructure module that sets up SQLAlchemy async engine, session factory, and ORM base class for the application. Provides FastAPI-compatible dependency injection for async database sessions.",
+      "file_cluster": [
+        "Database connectivity and engine configuration",
+        "Async session management for ORM operations",
+        "Database initialization and table creation"
+      ],
+      "important_relationships": [
+        "config.settings",
+        "infrastructure.models"
+      ],
+      "group_function": "Core database infrastructure layer that bridges configuration to SQLAlchemy async ORM setup.",
+      "raw_output": "The file establishes async database connectivity using SQLAlchemy's async support. It imports settings from the config module to build the engine, defines a DeclarativeBase for ORM models, creates a sessionmaker for async sessions, and provides an init_db() function to create tables and a get_session() dependency for FastAPI. The file is foundational for all data access operations in the application.\"",
+      "updated_at": "2026-03-04T19:58:36.863Z"
+    },
+    "infrastructure/graphiti/graphiti_client.py": {
+      "overall_summary": "Provides a cached factory function and utility helpers for initializing a Graphiti knowledge graph client with support for multiple LLM backends (OpenAI/Gemini) and Neo4j configuration.",
+      "file_cluster": [
+        "LLM client initialization and caching logic",
+        "Neo4j database connection configuration",
+        "Multi-provider LLM support (OpenAI, Gemini with embeddings and reranking)",
+        "Bootstrap and index constraint management for graph databases",
+        "Group ID sanitization for tenant/user isolation"
+      ],
+      "important_relationships": [
+        "config/settings.py",
+        "graphiti_core (external library)",
+        "graphiti_core.llm_client.gemini_client",
+        "graphiti_core.embedder.gemini",
+        "graphiti_core.cross_encoder.gemini_reranker_client"
+      ],
+      "group_function": "Infrastructure abstraction layer that decouples Graphiti client initialization from application code, enabling pluggable LLM provider selection and database management.",
+      "raw_output": "This file is a Neo4j/Graphiti integration module that provides factory and utility functions for the context-retrieval backend. Key responsibilities: (1) get_graphiti_client() factory with LRU caching that reads configuration from settings and instantiates either OpenAI-backed or Gemini-backed Graphiti clients with their respective embedders and rerankers; (2) ensure_bootstrap() async helper to initialize Neo4j indices and constraints; (3) build_group_id() to sanitize tenant_user identifiers for safe Neo4j/Graphiti group isolation. The module imports from graphiti_core library (3rd party), config.settings (internal config), and Python stdlib (logging, re, os, functools, typing).",
+      "updated_at": "2026-03-04T19:59:41.491Z"
+    },
+    "infrastructure/graphiti/ontology.py": {
+      "overall_summary": "Defines the Graphiti knowledge graph ontology with Pydantic models for entity types (Product, Feature, Decision, Issue, Release, Person, Team, Component) and edge types (WorksOn, Owns, DependsOn, Implements, Blocks, Decides, Mentions, HasFeature) that represent organizational and product management relationships.",
+      "file_cluster": [
+        "Entity type definitions: Product, Feature, Decision, Issue, Release, Person, Team, Component",
+        "Relationship/edge type definitions: WorksOn, Owns, DependsOn, Implements, Blocks, Decides, Mentions, HasFeature",
+        "Graph configuration mappings: DEFAULT_ENTITY_TYPES, DEFAULT_EDGE_TYPES, DEFAULT_EDGE_TYPE_MAP",
+        "Entity schema validation with optional typed fields and descriptions"
+      ],
+      "important_relationships": [
+        "pydantic.BaseModel (base class for all entity and relationship models)",
+        "typing module (type hints and annotations)",
+        "datetime module (temporal fields for tracking dates)"
+      ],
+      "group_function": "Core schema and type definitions for Graphiti knowledge graph infrastructure enabling structured representation of organizational entities and their relationships.",
+      "raw_output": "This file defines the ontology layer for Graphiti, a knowledge graph system. It contains 8 entity types (Product, Feature, Decision, Issue, Release, Person, Team, Component) and 8 edge/relationship types (WorksOn, Owns, DependsOn, Implements, Blocks, Decides, Mentions, HasFeature). Each class inherits from Pydantic's BaseModel for schema validation. The file exports three configuration dictionaries: DEFAULT_ENTITY_TYPES maps entity class names to their type definitions, DEFAULT_EDGE_TYPES maps relationship names to relationship classes, and DEFAULT_EDGE_TYPE_MAP defines valid entity-to-entity relationship combinations (e.g., Person can WorksOn or Mention a Product). This provides a flexible framework for extracting and organizing organizational knowledge into a typed graph structure.\"",
+      "updated_at": "2026-03-04T19:59:45.196Z"
+    },
+    "infrastructure/models/__init__.py": {
+      "overall_summary": "Package initialization file that exports three core data model classes (DataRecord, ChunkRecord, GraphitiEpisodeRecord) from the data module to provide a clean public API for the infrastructure.models package.",
+      "file_cluster": [
+        "Data model exports and package initialization",
+        "Core entity classes for data records, chunks, and episodes",
+        "Public API definition via __all__"
+      ],
+      "important_relationships": [
+        "infrastructure/models/data.py"
+      ],
+      "group_function": "Serves as the entry point for the infrastructure.models package, enabling clean imports of data model classes throughout the application.",
+      "raw_output": "This __init__.py file is the package initialization module for infrastructure.models. It imports three core model classes from the local data module (DataRecord, ChunkRecord, GraphitiEpisodeRecord) and exposes them via __all__ to define the public API. The file acts as a facade for data model imports, allowing consumers to import directly from infrastructure.models rather than infrastructure.models.data. No reverse references found, indicating this is a leaf export module.\"",
+      "updated_at": "2026-03-04T19:59:52.058Z"
+    },
+    "infrastructure/repositories/__init__.py": {
+      "overall_summary": "Package initialization file for the repositories layer that exports three core repository classes: DataRepository, ChunkRepository, and GraphitiEpisodeRepository.",
+      "file_cluster": [
+        "Infrastructure layer repositories module",
+        "Data access abstraction exports",
+        "Repository pattern implementation"
+      ],
+      "important_relationships": [
+        "infrastructure/repositories/data_repository.py",
+        "infrastructure/repositories/chunk_repository.py",
+        "infrastructure/repositories/graphiti_episode_repository.py"
+      ],
+      "group_function": "Central export point for all repository implementations in the data access layer.",
+      "raw_output": "This is a Python package __init__.py file that serves as the public interface for the repositories submodule. It imports three repository classes from their respective modules (data_repository, chunk_repository, and graphiti_episode_repository) and exports them via __all__. The file acts as a facade for the data access layer, allowing consumers to import repositories from the infrastructure.repositories package rather than from individual modules.",
+      "updated_at": "2026-03-04T20:00:24.130Z"
+    },
+    "infrastructure/repositories/data_repository.py": {
+      "overall_summary": "Async persistence layer for managing DataRecord and ChunkRecord entities using SQLAlchemy. Provides CRUD operations with tenant and user isolation.",
+      "file_cluster": [
+        "Persistence / Data Access Layer",
+        "Async repository pattern implementation",
+        "Tenant-aware record management",
+        "Chunk-based document storage"
+      ],
+      "important_relationships": [
+        "infrastructure/models.py (DataRecord, ChunkRecord)",
+        "sqlalchemy (ORM operations)",
+        "sqlalchemy.ext.asyncio (AsyncSession)"
+      ],
+      "group_function": "Core repository abstraction for data persistence, supporting multi-tenant, multi-user document storage with chunked content retrieval.",
+      "raw_output": "DataRepository is the primary persistence layer for the application. It manages DataRecord (document metadata and body) and ChunkRecord (text fragments) entities. The class implements async CRUD operations with SQLAlchemy ORM. Key features: (1) create_with_chunks atomically creates a parent record and adds associated chunk records, (2) list queries records by tenant_id with optional user_id filtering, (3) get retrieves a specific record with authorization, (4) delete removes records with authorization checks. All operations are async and use parameterized queries for SQL injection prevention. Tenant and user isolation are enforced at the query layer.",
+      "updated_at": "2026-03-04T20:01:16.754Z"
+    },
+    "routers/data_router.py": {
+      "overall_summary": "FastAPI router exposing REST endpoints for data record management, supporting list, retrieve, and delete operations with scope-based access control and Graphiti integration for knowledge graph operations.",
+      "file_cluster": [
+        "Data access tier",
+        "HTTP endpoint handlers",
+        "Request routing and response serialization",
+        "Multi-tenant and user-scoped authorization"
+      ],
+      "important_relationships": [
+        "services/data_service.py",
+        "infrastructure/database.py",
+        "infrastructure/graphiti.py",
+        "routers/scope.py",
+        "schemas.py"
+      ],
+      "group_function": "API gateway for data CRUD operations; coordinates between FastAPI request handling, database sessions, and business logic via DataService.",
+      "raw_output": "This FastAPI router defines three endpoints: GET /data (list records), GET /data/{data_id} (retrieve single record), and DELETE /data/{data_id} (soft/hard delete). Each endpoint depends on scope extraction (tenant/user context) and async database sessions. The DataService orchestrates database queries and Graphiti client interactions. Error handling includes 404 for missing records and 503 for Graphiti failures. The router follows multi-tenant patterns with tenant_id and user_id scoping.",
+      "updated_at": "2026-03-04T20:01:38.594Z"
+    },
+    "routers/scope.py": {
+      "overall_summary": "FastAPI dependency function that extracts and validates tenant and user scope from HTTP X-Scope header, with fallback to configurable defaults when placeholder mode is enabled.",
+      "file_cluster": [
+        "Scope resolution and validation logic",
+        "HTTP request header parsing (X-Scope format: 'tenant_id:user_id')",
+        "Configuration-driven fallback behavior"
+      ],
+      "important_relationships": [
+        "config/settings.py (imports get_settings for configuration)",
+        "fastapi (HTTPException and Header utilities)"
+      ],
+      "group_function": "Provides a FastAPI dependency for extracting authenticated request scope (tenant and user identity) to enable multi-tenant request isolation.",
+      "raw_output": "The file defines a FastAPI dependency endpoint `get_scope()` that parses the X-Scope header to extract tenant_id and user_id from a colon-separated format. It uses the settings module to determine whether to apply default placeholder values when the header is missing or incomplete. The function raises HTTP 400 if required scope information cannot be resolved. This is a critical routing/middleware-like component for multi-tenant isolation.",
+      "updated_at": "2026-03-04T20:02:38.367Z"
+    },
+    "routers/search_router.py": {
+      "overall_summary": "FastAPI router endpoint that handles search queries by delegating to the SearchService, managing scope-based tenant/user isolation and Graphiti client availability.",
+      "file_cluster": [
+        "Defines a single GET /search endpoint with query parameter validation",
+        "Integrates with Graphiti client infrastructure for search operations",
+        "Enforces scope-based multi-tenancy via get_scope dependency injection",
+        "Handles service unavailability and search failures with appropriate HTTP error responses"
+      ],
+      "important_relationships": [
+        "infrastructure/graphiti.py",
+        "services/search_service.py",
+        "routers/scope.py"
+      ],
+      "group_function": "REST API router layer that exposes search functionality as a web endpoint with tenant isolation and error handling.",
+      "raw_output": "This file implements a FastAPI router for search operations. It defines a single GET endpoint at /search that accepts a required query parameter (min 1 char). The endpoint retrieves a Graphiti client, builds a tenant/user-specific group_id from scope dependencies, instantiates SearchService with that group context, and executes the search. It includes error handling for unavailable Graphiti client and search failures. Dependencies: fastapi, infrastructure.graphiti (client and group_id builder), routers.scope (multi-tenancy scope), and services.search_service (business logic).",
+      "updated_at": "2026-03-04T20:02:42.965Z"
+    },
+    "schemas/__init__.py": {
+      "overall_summary": "Package initialization file that re-exports data validation schemas and thread-related request/response models for the context retrieval backend API.",
+      "file_cluster": [
+        "Data ingestion schemas (DataCreateRequest, DataResponse, DataListItem, ChunkResponse, BulkDataResponse, BulkIngestError)",
+        "Thread management schemas (ThreadCreateRequest, ThreadIngestResponse)"
+      ],
+      "important_relationships": [
+        "schemas/data.py",
+        "schemas/thread.py"
+      ],
+      "group_function": "Centralized export point for API request/response models used across the backend application.",
+      "raw_output": "This is a package initialization file in the schemas module that aggregates and re-exports Pydantic models and request/response classes. It imports 6 data-related schemas from the .data module and 2 thread-related schemas from the .thread module, making them available at the package level. The __all__ declaration explicitly defines the public API surface, enabling clean imports throughout the application.",
+      "updated_at": "2026-03-04T20:02:52.867Z"
+    },
+    "schemas/thread.py": {
+      "overall_summary": "Defines Pydantic data models for thread ingestion requests and responses, providing API contracts for Slack-like message payloads and processed thread outputs with graph entities and edges.",
+      "file_cluster": [
+        "Pydantic BaseModel schemas for API request/response validation",
+        "ThreadCreateRequest: accepts Slack-like message payload",
+        "ThreadIngestResponse: returns thread metadata, chunks, and knowledge graph data"
+      ],
+      "important_relationships": [
+        "pydantic (BaseModel, Field for validation)",
+        "typing (type hints for complex data structures)"
+      ],
+      "group_function": "Schema layer providing data contracts between API consumers and backend services for thread ingestion and knowledge graph generation.",
+      "raw_output": "The file defines two Pydantic models: ThreadCreateRequest accepts a list of message dictionaries in Slack-like format; ThreadIngestResponse returns processed thread data including id, title, body, chunk counts, and optional graph entities/edges. The schemas serve as API contracts for the context-retrieval backend's thread ingestion pipeline.",
+      "updated_at": "2026-03-04T20:03:24.740Z"
+    },
+    "services/__init__.py": {
+      "overall_summary": "An empty package initializer file for the services module, establishing it as a Python package with no current exports or imports.",
+      "file_cluster": [
+        "Package initialization",
+        "Services module namespace definition"
+      ],
+      "important_relationships": [],
+      "group_function": "Marks the services directory as a Python package namespace; enables importing from the services module.",
+      "raw_output": "The services/__init__.py file is an empty Python package initializer. It contains no code or explicit imports/exports, serving only to establish the services directory as a proper Python package. The reference graph shows no current dependencies or reverse dependencies, indicating the services module is either newly created or has not yet been integrated with other parts of the codebase. This file's role is structural—it enables the services folder to be treated as an importable package within the project.",
+      "updated_at": "2026-03-04T20:04:06.739Z"
+    },
+    "services/data_service.py": {
+      "overall_summary": "DataService is a high-level service for managing data records with document chunking, storage via repositories, and optional integration with Graphiti knowledge graph. It handles CRUD operations (create, read, list, delete) with multi-tenant isolation and transactional bulk ingestion.",
+      "file_cluster": [
+        "Data lifecycle management: create single/bulk records, retrieve by ID, list user records, delete with cleanup",
+        "Document processing: automatic chunking via chunk_document utility, configurable chunk size",
+        "Knowledge graph integration: optional Graphiti client for ingesting chunks as episodic text entities with entity/edge type mappings",
+        "Repository pattern: delegates persistence to DataRepository, ChunkRepository, and GraphitiEpisodeRepository",
+        "Error handling: graceful fallback on Graphiti ingestion failure, per-file transaction rollback on bulk creation errors, logged warnings for missing episodes on deletion"
+      ],
+      "important_relationships": [
+        "infrastructure/repositories.py (DataRepository, ChunkRepository, GraphitiEpisodeRepository)",
+        "services/chunking.py (chunk_document)",
+        "infrastructure/graphiti.py (DEFAULT_ENTITY_TYPES, DEFAULT_EDGE_TYPES, DEFAULT_EDGE_TYPE_MAP, build_group_id)",
+        "graphiti_core (Graphiti client, EpisodeType, RawEpisode, NodeNotFoundError)"
+      ],
+      "group_function": "Core service layer bridging HTTP/business logic with data persistence and external knowledge graph ingestion; enables multi-tenant document ingest workflows with optional AI enrichment via Graphiti.",
+      "raw_output": "DataService is a stateful service class managing the lifecycle of data records. Constructor accepts AsyncSession, tenant_id, user_id, and optional Graphiti client; instantiates three repository instances. Key methods: create_record (single doc with optional chunking, Graphiti episode creation, error propagation), create_records_bulk (transactional per-file, success/error separation), list_records (tenant/user scoped), get_record (with chunks), delete_record (cascades to Graphiti episodes). Integration with Graphiti is conditional, logged for failures, and uses group_id derived from tenant+user. Chunk indexing preserves document structure via chunk_document utility. All DB operations are scoped to tenant_id and user_id for isolation.",
+      "updated_at": "2026-03-04T20:04:37.480Z"
+    },
+    "services/search_service.py": {
+      "overall_summary": "SearchService is a thin wrapper around the Graphiti search client that executes semantic searches across grouped knowledge graphs. It transforms Graphiti search results into a standardized payload format containing facts with temporal validity markers.",
+      "file_cluster": [
+        "Graphiti client wrapper and adapter layer",
+        "Semantic search execution and result transformation",
+        "Multi-group query routing"
+      ],
+      "important_relationships": [
+        "graphiti_core.Graphiti"
+      ],
+      "group_function": "Service layer for search operations; abstracts Graphiti client complexity and standardizes result formatting for API consumers.",
+      "raw_output": "SearchService wraps the external Graphiti library to provide search functionality. The class accepts a Graphiti client instance and list of group IDs during initialization. The async search() method queries Graphiti with the provided query string and group IDs, then transforms results by extracting fact, valid_at, and invalid_at fields. However, the implementation contains a bug: it builds a payload array but returns the original results instead of the payload. The service serves as an adapter layer between the API layer and the Graphiti search engine, enabling multi-group search routing and result standardization.",
+      "updated_at": "2026-03-04T20:04:43.929Z"
+    },
+    "tests/__init__.py": {
+      "overall_summary": "Empty Python package initialization file that marks the tests directory as a Python package, enabling test discovery and imports.",
+      "file_cluster": [
+        "Test package root",
+        "Python package marker"
+      ],
+      "important_relationships": [],
+      "group_function": null,
+      "raw_output": "This is an empty __init__.py file in the tests/ directory. Its primary role is to mark the tests directory as a Python package, which is necessary for Python to properly handle imports and test discovery. The file contains no code or configuration. Reference graph shows no dependencies or reverse references, confirming this is a standalone package initialization marker with no direct relationships to other code.",
+      "updated_at": "2026-03-04T20:05:01.689Z"
+    },
+    "config/__init__.py": {
+      "overall_summary": "An empty Python package initialization file for the config module with no current implementation or dependencies.",
+      "file_cluster": [
+        "config module initialization",
+        "package structure definition"
+      ],
+      "important_relationships": [],
+      "group_function": "Serves as the entry point for the config package, currently unused but available for future configuration management exports.",
+      "raw_output": "The config/__init__.py file is an empty Python package initialization file. It contains no imports, classes, functions, or variables. The reference graph shows no incoming or outgoing references, indicating this module is not yet integrated into the codebase. As a package __init__.py, it represents the structural foundation for the config module but is not currently being utilized for configuration exports or initialization logic.",
+      "updated_at": "2026-03-04T20:05:15.551Z"
+    },
+    "infrastructure/__init__.py": {
+      "overall_summary": "Empty package initialization file for the infrastructure module.",
+      "file_cluster": [
+        "infrastructure package initialization"
+      ],
+      "important_relationships": [],
+      "group_function": null,
+      "raw_output": "This is an empty __init__.py file that serves to mark the infrastructure directory as a Python package. It contains no code, imports, or exports. The reference graph shows no references or reverse references, indicating this package has not yet been integrated with other modules or serves as a placeholder for future infrastructure components.",
+      "updated_at": "2026-03-04T20:06:00.721Z"
+    },
+    "infrastructure/repositories/chunk_repository.py": {
+      "overall_summary": "ChunkRepository is a data access layer that manages persistence of text chunks associated with data records, providing async methods to create, list, and delete chunks with tenant and user scoping.",
+      "file_cluster": [
+        "Database persistence abstraction for chunk records",
+        "Async SQLAlchemy-based repository pattern",
+        "Multi-tenant chunk querying with optional user isolation",
+        "Batch chunk creation with sequential indexing"
+      ],
+      "important_relationships": [
+        "infrastructure/models",
+        "sqlalchemy"
+      ],
+      "group_function": "Repository layer providing CRUD operations for chunks with tenant-aware access control and data integrity checks.",
+      "raw_output": "ChunkRepository implements a persistence layer using SQLAlchemy async session. It provides three core async methods: create_batch (inserts multiple chunks with sequential indices), list_for_data (queries chunks for a data record with tenant/user filtering), and delete_for_data (removes chunks with parent record validation). The class enforces multi-tenant isolation by scoping queries through parent DataRecord entities and optional user_id filters. Dependencies include ChunkRecord and DataRecord models from infrastructure.models, and SQLAlchemy select/delete operations.",
+      "updated_at": "2026-03-04T20:06:26.754Z"
+    }
+  }
+}

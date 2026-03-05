@@ -1,0 +1,1 @@
+TypeScript type definitions for WebSocket communication, chat management, and repository progress tracking in a context retrieval system
