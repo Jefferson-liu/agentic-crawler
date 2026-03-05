@@ -27,4 +27,5 @@ Thumbs.db
 *.tsbuildinfo
 
 # Local chat persistence
-data/chats.json
+data/
+
