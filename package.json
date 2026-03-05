@@ -8,9 +8,6 @@
     "dev:server": "tsx watch server/server.ts",
     "dev:client": "vite --port 5173",
     "start": "tsx server/server.ts",
-    "test:mcp": "tsx server/scripts/test-mcp.ts --mode agent",
-    "test:mcp:agent": "tsx server/scripts/test-mcp.ts --mode agent",
-    "test:mcp:tool": "tsx server/scripts/test-mcp.ts --mode tool",
     "build": "vite build"
   },
   "dependencies": {

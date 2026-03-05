@@ -1,19 +1,36 @@
-import { query, type Query, type CanUseTool } from "@anthropic-ai/claude-agent-sdk";
+import {
+  query,
+  type Query,
+} from "@anthropic-ai/claude-agent-sdk";
 import { customServer } from "./custom-tools";
-import { load_prompt_sync } from "./prompt-loader";
 
-const DEFAULT_REPO_KNOWLEDGE_PROMPT =
-  "You are a cache-first repo knowledge orchestrator. Reuse cache when valid, rebuild when stale.";
+const SKILL_SYSTEM_PROMPT = `You are a helpful AI product management assistant.
 
-const SYSTEM_PROMPT = `You are a helpful AI product management assistant.
+For repository architecture, codebase summaries, cross-file relationships, or repository refresh requests, use the Skill tool and invoke the "repo-crawling-analysis" project skill.
+When the user sends "/repo refresh", treat it as a forced rebuild request instead of using cached summary output.
 
-For repository/codebase questions (architecture, file roles, cross-file relationships, technical summaries), you MUST delegate to the "repo-knowledge" subagent via Task before answering.
-Do not provide repository analysis directly from the top-level agent.
-Wait for the delegated repo-knowledge workflow to finish before producing the final repository answer.
+For non-repository questions, answer directly and concisely.`;
 
-If the user asks to refresh repository knowledge, or uses the command \`/repo-knowledge refresh [repo_path?]\`, invoke "repo-knowledge" with force_refresh=true.
+const LEGACY_SYSTEM_PROMPT = `You are a helpful AI product management assistant.
 
-For non-repository requests, answer directly and concisely.`;
+Answer clearly and concisely. Use available tools when needed to inspect files, references, and summaries.`;
+
+const SKILL_ALLOWED_TOOLS = [
+  "Skill",
+  "Bash",
+  "Read",
+  "Glob",
+  "Grep",
+  "Write",
+  "mcp__file__read_context_summary",
+  "mcp__file__read_file_summaries",
+  "mcp__file__index_repository_ast",
+  "mcp__file__list_reference_subjects",
+  "mcp__file__read_file",
+  "mcp__file__return_reference_graph",
+  "mcp__file__write_file_summary",
+  "mcp__file__write_context_summary",
+];
 
 type AgentModel = "sonnet" | "haiku" | "opus" | "inherit";
 
@@ -24,87 +41,32 @@ function resolveAgentModel(value: string | undefined, fallback: AgentModel): Age
   return fallback;
 }
 
-function safeLoadPrompt(promptName: string, fallback: string): string {
-  try {
-    return load_prompt_sync(promptName);
-  } catch (error) {
-    console.error(`Failed to load prompt "${promptName}":`, error);
-    return fallback;
-  }
-}
-
-const REPO_KNOWLEDGE_PROMPT = safeLoadPrompt(
-  "repo_knowledge_orchestrator",
-  DEFAULT_REPO_KNOWLEDGE_PROMPT,
-);
-
 const MAIN_AGENT_MODEL = resolveAgentModel(process.env.MAIN_AGENT_MODEL, "sonnet");
-const REPO_KNOWLEDGE_MODEL = resolveAgentModel(
-  process.env.REPO_KNOWLEDGE_MODEL,
-  "sonnet",
-);
-
-const REPO_KNOWLEDGE_ALLOWED_MCP_TOOLS = new Set([
-  "mcp__file__run_repo_knowledge_team_pipeline",
-  "mcp__file__read_context_summary",
-]);
-const TOP_LEVEL_ALLOWED_TOOLS = new Set([
-  "Task",
-  ...REPO_KNOWLEDGE_ALLOWED_MCP_TOOLS,
-]);
-
-type CanUseToolOptions = Parameters<CanUseTool>[2];
-type CanUseToolSuggestions = CanUseToolOptions["suggestions"];
-
-function allowTool(input: Record<string, unknown>, suggestions?: CanUseToolSuggestions) {
-  return {
-    behavior: "allow" as const,
-    updatedInput: input,
-    ...(Array.isArray(suggestions) && suggestions.length > 0
-      ? { updatedPermissions: suggestions }
-      : {}),
-  };
-}
-
-function denyTool(message: string) {
-  return {
-    behavior: "deny" as const,
-    message,
-  };
-}
-
-type UserMessage = {
-  type: "user";
-  message: { role: "user"; content: string };
-};
-
-function mapSpecialCommand(content: string): string {
-  const refreshMatch = content.match(/^\/repo-knowledge\s+refresh(?:\s+(.+))?$/i);
-  if (!refreshMatch) {
-    return content;
-  }
-
-  const repoAddress = refreshMatch[1]?.trim();
-  if (repoAddress) {
-    const quotedRepoAddress = JSON.stringify(repoAddress);
-    return `Refresh repository knowledge now by delegating to the repo-knowledge subagent with force_refresh=true and repo_address=${quotedRepoAddress}. Return the refresh status and missing summaries.`;
-  }
-
-  return "Refresh repository knowledge now by delegating to the repo-knowledge subagent with force_refresh=true for the current working directory. Return the refresh status and missing summaries.";
-}
+const REPO_ANALYSIS_SKILL_ENABLED = process.env.REPO_ANALYSIS_SKILL_ENABLED !== "0";
 
 class MessageQueue {
-  private messages: UserMessage[] = [];
-  private waiting: ((msg: UserMessage) => void) | null = null;
+  private messages: Array<{
+    type: "user";
+    message: { role: "user"; content: string };
+    parent_tool_use_id: string | null;
+  }> = [];
+  private waiting:
+    | ((msg: {
+        type: "user";
+        message: { role: "user"; content: string };
+        parent_tool_use_id: string | null;
+      }) => void)
+    | null = null;
   private closed = false;
 
   push(content: string) {
-    const msg: UserMessage = {
+    const msg = {
       type: "user",
       message: {
         role: "user",
         content,
       },
+      parent_tool_use_id: null,
     };
 
     if (this.waiting) {
@@ -115,12 +77,12 @@ class MessageQueue {
     }
   }
 
-  async *[Symbol.asyncIterator](): AsyncIterableIterator<UserMessage> {
+  async *[Symbol.asyncIterator](): AsyncIterableIterator<any> {
     while (!this.closed) {
       if (this.messages.length > 0) {
         yield this.messages.shift()!;
       } else {
-        yield await new Promise<UserMessage>((resolve) => {
+        yield await new Promise<any>((resolve) => {
           this.waiting = resolve;
         });
       }
@@ -132,75 +94,39 @@ class MessageQueue {
   }
 }
 
-function normalizeToolInput(input: unknown): Record<string, unknown> {
-  if (!input || typeof input !== "object" || Array.isArray(input)) {
-    return {};
+function mapSpecialCommand(content: string): string {
+  const normalized = content.trim();
+  if (/^\/repo\s+refresh$/i.test(normalized)) {
+    return "Refresh repository analysis now. Force a full rebuild instead of using cached summaries.";
   }
-  return { ...(input as Record<string, unknown>) };
+  return content;
 }
 
 export class AgentSession {
   private queue = new MessageQueue();
   private queryStream: Query | null = null;
   private outputIterator: AsyncIterator<any> | null = null;
-  private readonly chatId: string;
 
-  constructor(chatId: string) {
-    this.chatId = chatId;
+  constructor() {
+    const options: Record<string, unknown> = {
+      maxTurns: 300,
+      model: MAIN_AGENT_MODEL,
+      permissionMode: "acceptEdits",
+      mcpServers: {
+        file: customServer,
+      },
+      cwd: process.cwd(),
+      systemPrompt: REPO_ANALYSIS_SKILL_ENABLED ? SKILL_SYSTEM_PROMPT : LEGACY_SYSTEM_PROMPT,
+    };
+
+    if (REPO_ANALYSIS_SKILL_ENABLED) {
+      options.settingSources = ["user", "project"];
+      options.allowedTools = SKILL_ALLOWED_TOOLS;
+    }
 
     this.queryStream = query({
-      prompt: this.queue as any,
-      options: {
-        maxTurns: 300,
-        model: MAIN_AGENT_MODEL,
-        allowedTools: Array.from(TOP_LEVEL_ALLOWED_TOOLS),
-        permissionMode: "dontAsk",
-        mcpServers: {
-          file: customServer,
-        },
-        agents: {
-          "repo-knowledge": {
-            description:
-              "Cache-first repository knowledge orchestrator that runs a service-level queue pipeline tool for indexing, file summaries, and context generation.",
-            prompt: REPO_KNOWLEDGE_PROMPT,
-            model: REPO_KNOWLEDGE_MODEL,
-            tools: [
-              "mcp__file__run_repo_knowledge_team_pipeline",
-              "mcp__file__read_context_summary",
-            ],
-            mcpServers: ["file"],
-          },
-        },
-        canUseTool: (async (
-          toolName: string,
-          input: Record<string, unknown>,
-          options: CanUseToolOptions,
-        ) => {
-          const isTopLevelAgent = !options.agentID;
-
-          if (toolName === "Task") {
-            if (isTopLevelAgent) {
-              return allowTool(normalizeToolInput(input), options.suggestions);
-            }
-            return denyTool("Nested Task is disabled. Use service-level repo team pipeline.");
-          }
-
-          if (isTopLevelAgent && !TOP_LEVEL_ALLOWED_TOOLS.has(toolName)) {
-            return denyTool(`${toolName} is disabled at top level. Delegate through Task.`);
-          }
-
-          if (REPO_KNOWLEDGE_ALLOWED_MCP_TOOLS.has(toolName)) {
-            const normalizedInput = normalizeToolInput(input);
-            if (toolName === "mcp__file__run_repo_knowledge_team_pipeline") {
-              normalizedInput.chat_id = this.chatId;
-            }
-            return allowTool(normalizedInput, options.suggestions);
-          }
-
-          return denyTool(`${toolName} is not allowed in this session.`);
-        }) satisfies CanUseTool,
-        systemPrompt: SYSTEM_PROMPT,
-      } as any,
+      prompt: this.queue,
+      options: options as any,
     });
     this.outputIterator = this.queryStream[Symbol.asyncIterator]();
   }

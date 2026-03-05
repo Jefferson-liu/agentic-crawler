@@ -2,12 +2,11 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { createServer } from "http";
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocketServer } from "ws";
 import path from "path";
 import { fileURLToPath } from "url";
 import type { WSClient, IncomingWSMessage } from "./types.js";
 import { chatStore } from "./chat-store.js";
-import { repoCostLedger } from "./repo-cost-ledger.js";
 import { Session } from "./session.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -32,11 +31,8 @@ interface ChatCostSummary {
   title: string;
   updated_at: string;
   assistant_turn_count: number;
-  repo_run_count: number;
   assistant_message_cost_usd: number;
-  repo_pipeline_cost_usd: number;
   total_cost_usd: number;
-  is_deleted_chat?: boolean;
 }
 
 // Serve static files from client directory
@@ -100,10 +96,10 @@ app.get("/api/chats/:id/messages", (req, res) => {
   res.json(messages);
 });
 
-// REST API: Cost summary across chats and repo pipeline runs
+// REST API: Cost summary across chats
 app.get("/api/costs/summary", (req, res) => {
   const chats = chatStore.getAllChats();
-  const perChat = new Map<string, ChatCostSummary>();
+  const perChat: ChatCostSummary[] = [];
   let assistantMessageTotalUsd = 0;
 
   for (const chat of chats) {
@@ -124,68 +120,24 @@ app.get("/api/costs/summary", (req, res) => {
     }
 
     assistantMessageTotalUsd += assistantMessageCostUsd;
-    perChat.set(chat.id, {
+    perChat.push({
       chat_id: chat.id,
       title: chat.title,
       updated_at: chat.updatedAt,
       assistant_turn_count: assistantTurnCount,
-      repo_run_count: 0,
       assistant_message_cost_usd: assistantMessageCostUsd,
-      repo_pipeline_cost_usd: 0,
       total_cost_usd: assistantMessageCostUsd,
     });
   }
 
-  const runSnapshots = repoCostLedger.getRunCostSnapshots();
-  let repoPipelineTotalUsd = 0;
-
-  for (const run of runSnapshots) {
-    const runCost = normalizeUsd(run.total_cost_usd);
-    repoPipelineTotalUsd += runCost;
-
-    const existing = perChat.get(run.chat_id);
-    if (!existing) {
-      const fallbackTitle =
-        run.chat_id.trim().length > 0
-          ? `Deleted chat (${run.chat_id.slice(0, 8)})`
-          : "Deleted chat";
-      perChat.set(run.chat_id, {
-        chat_id: run.chat_id,
-        title: fallbackTitle,
-        updated_at: run.updated_at,
-        assistant_turn_count: 0,
-        repo_run_count: 1,
-        assistant_message_cost_usd: 0,
-        repo_pipeline_cost_usd: runCost,
-        total_cost_usd: runCost,
-        is_deleted_chat: true,
-      });
-      continue;
+  const perChatList = perChat.sort((a, b) => {
+    const costDelta = b.total_cost_usd - a.total_cost_usd;
+    if (costDelta !== 0) {
+      return costDelta;
     }
+    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+  });
 
-    existing.repo_run_count += 1;
-    existing.repo_pipeline_cost_usd += runCost;
-    if (new Date(run.updated_at).getTime() > new Date(existing.updated_at).getTime()) {
-      existing.updated_at = run.updated_at;
-    }
-  }
-
-  const perChatList = Array.from(perChat.values())
-    .map((entry) => ({
-      ...entry,
-      total_cost_usd:
-        normalizeUsd(entry.assistant_message_cost_usd) +
-        normalizeUsd(entry.repo_pipeline_cost_usd),
-    }))
-    .sort((a, b) => {
-      const costDelta = b.total_cost_usd - a.total_cost_usd;
-      if (costDelta !== 0) {
-        return costDelta;
-      }
-      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-    });
-
-  const totalCostUsd = assistantMessageTotalUsd + repoPipelineTotalUsd;
   const chatsWithCostCount = perChatList.filter((entry) => entry.total_cost_usd > 0).length;
 
   res.json({
@@ -194,8 +146,7 @@ app.get("/api/costs/summary", (req, res) => {
       chat_count: perChatList.length,
       chats_with_cost_count: chatsWithCostCount,
       assistant_message_total_usd: assistantMessageTotalUsd,
-      repo_pipeline_total_usd: repoPipelineTotalUsd,
-      total_cost_usd: totalCostUsd,
+      total_cost_usd: assistantMessageTotalUsd,
     },
     per_chat: perChatList,
   });
@@ -234,16 +185,18 @@ wss.on("connection", (ws: WSClient) => {
 
       switch (message.type) {
         case "subscribe": {
-          const session = attachToSession(message.chatId);
+          attachToSession(message.chatId);
           console.log(`Client subscribed to chat ${message.chatId}`);
 
           // Send existing messages
           const messages = chatStore.getMessages(message.chatId);
-          ws.send(JSON.stringify({
-            type: "history",
-            messages,
-            chatId: message.chatId,
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "history",
+              messages,
+              chatId: message.chatId,
+            }),
+          );
           break;
         }
 

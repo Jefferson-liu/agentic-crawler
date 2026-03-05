@@ -7,7 +7,6 @@ import type { ReferenceType } from "./reference-graph";
 import {
   listReferenceNodes,
   listReferenceSubjects,
-  readReferenceGraphContext,
   readReferenceNode,
   writeReferenceSummary,
 } from "./reference-graph";
@@ -17,7 +16,6 @@ import {
   readContextSummary,
   writeContextSummary,
 } from "./context-summary";
-import { load_prompt } from "./prompt-loader";
 import {
   getFileSummariesPath,
   loadFileSummariesStore,
@@ -25,11 +23,7 @@ import {
   summarizeStoreProgress,
   writeFileSummaryRecord,
 } from "./file-summary-store";
-import { computeRepoFingerprint } from "./repo-fingerprint";
-import { runRepoKnowledgeTeamPipeline } from "./repo-knowledge-team";
 import { normalizeRepoPathInput } from "./path-normalization";
-
-const REF_GRAPH_PATH = path.resolve(process.cwd(), "data/ref-graph.json");
 
 // Load environment variables
 const envPath = path.join(process.cwd(), ".env");
@@ -228,125 +222,6 @@ The file_path can be absolute or relative to the current working directory.`,
       },
     ),
     tool(
-      "get_repo_knowledge_status",
-      "Return cache validity and freshness information for repo knowledge artifacts.",
-      {
-        repo_address: z
-          .string()
-          .optional()
-          .describe("Absolute or relative path to the repository root. Defaults to current working directory."),
-        force_refresh: z
-          .boolean()
-          .optional()
-          .describe("Set true to force a rebuild regardless of cache validity."),
-      },
-      async ({ repo_address, force_refresh }) => {
-        console.log("==== GET REPO KNOWLEDGE STATUS TOOL CALLED ====");
-
-        const absoluteRepoPath = resolveRepoAddress(repo_address);
-        const forceRefresh = force_refresh ?? false;
-        const fingerprint = await computeRepoFingerprint(absoluteRepoPath);
-        const store = await loadFileSummariesStore();
-        const refGraphContext = await readReferenceGraphContext();
-
-        const summaryExists = fs.existsSync(getContextSummaryPath());
-        const refGraphExists = fs.existsSync(REF_GRAPH_PATH);
-        const fileSummariesExists = fs.existsSync(getFileSummariesPath());
-
-        const matchesRepo = store?.repo_address === absoluteRepoPath;
-        const matchesFingerprint = store?.fingerprint === fingerprint.fingerprint;
-        const refGraphRepoMatches = refGraphContext.repo_address === absoluteRepoPath;
-        const hasAllArtifacts = summaryExists && refGraphExists && fileSummariesExists;
-        const progress = summarizeStoreProgress(store);
-        const progressComplete =
-          progress.expected_count === 0 || progress.completed_count >= progress.expected_count;
-        const cacheInvalidReasons: string[] = [];
-        if (forceRefresh) {
-          cacheInvalidReasons.push("force_refresh_requested");
-        }
-        if (!hasAllArtifacts) {
-          cacheInvalidReasons.push("missing_required_artifacts");
-        }
-        if (!store) {
-          cacheInvalidReasons.push("file_summaries_store_missing");
-        }
-        if (!matchesRepo) {
-          cacheInvalidReasons.push("store_repo_mismatch");
-        }
-        if (!matchesFingerprint) {
-          cacheInvalidReasons.push("store_fingerprint_mismatch");
-        }
-        if (!refGraphRepoMatches) {
-          cacheInvalidReasons.push("ref_graph_repo_mismatch");
-        }
-        if (!progressComplete) {
-          cacheInvalidReasons.push("file_summaries_incomplete");
-        }
-        const cacheValid = cacheInvalidReasons.length === 0;
-
-        const payload = {
-          repo_address: absoluteRepoPath,
-          force_refresh: forceRefresh,
-          cache_valid: cacheValid,
-          has_all_artifacts: hasAllArtifacts,
-          summary_exists: summaryExists,
-          ref_graph_exists: refGraphExists,
-          file_summaries_exists: fileSummariesExists,
-          store_repo_matches: Boolean(matchesRepo),
-          store_fingerprint_matches: Boolean(matchesFingerprint),
-          ref_graph_repo_address: refGraphContext.repo_address,
-          ref_graph_repo_matches: refGraphRepoMatches,
-          ref_graph_indexed_at: refGraphContext.indexed_at,
-          ref_graph_node_count: refGraphContext.node_count,
-          ref_graph_file_node_count: refGraphContext.file_node_count,
-          store_fingerprint: store?.fingerprint ?? null,
-          current_fingerprint: fingerprint.fingerprint,
-          fingerprint_method: fingerprint.method,
-          fingerprint_head: fingerprint.head,
-          fingerprint_dirty: fingerprint.dirty,
-          fingerprint_changed_files: fingerprint.changed_files,
-          progress_complete: progressComplete,
-          cache_invalid_reasons: cacheInvalidReasons,
-          progress,
-        };
-        return jsonTextResult(payload);
-      },
-    ),
-    tool(
-      "run_repo_knowledge_team_pipeline",
-      "Run the service-level repo knowledge pipeline (index, summarize queue, context generation) without nested subagent spawning.",
-      {
-        repo_address: z
-          .string()
-          .optional()
-          .describe("Absolute or relative path to the repository root. Defaults to current working directory."),
-        force_refresh: z
-          .boolean()
-          .optional()
-          .describe("Set true to force a rebuild regardless of cache validity."),
-        chat_id: z
-          .string()
-          .optional()
-          .describe("Optional chat/session id used for websocket repo_progress events."),
-      },
-      async ({ repo_address, force_refresh, chat_id }) => {
-        console.log("==== RUN REPO KNOWLEDGE TEAM PIPELINE TOOL CALLED ====");
-
-        const report = await runRepoKnowledgeTeamPipeline({
-          repo_address,
-          force_refresh,
-          chat_id,
-          mcp_server: customServer,
-        });
-
-        const payload = {
-          success: true,
-          ...report,
-        };
-        return jsonTextResult(payload);
-      },
-    ),
-    tool(
       "list_reference_subjects",
       "List reference graph subjects, optionally filtered by node type.",
       {
@@ -370,7 +245,7 @@ The file_path can be absolute or relative to the current working directory.`,
     ),
     tool(
       "prepare_file_summaries_store",
-      "Initialize or reset data/file-summaries.json for a new repo-knowledge generation run.",
+      "Initialize or reset data/file-summaries.json for a new repository analysis run.",
       {
         repo_address: z
           .string()
@@ -500,23 +375,6 @@ The file_path can be absolute or relative to the current working directory.`,
           output_path: getContextSummaryPath(),
           content,
         };
-        return jsonTextResult(payload);
-      },
-    ),
-    tool(
-      "load_prompt",
-      "Load a prompt template from server/prompts by name",
-      {
-        prompt_name: z
-          .string()
-          .describe(
-            "Prompt file name with or without .txt (example: context_generator or context_generator.txt).",
-          ),
-      },
-      async ({ prompt_name }) => {
-        console.log("==== LOAD PROMPT TOOL CALLED ====");
-        const content = await load_prompt(prompt_name);
-        const payload = { prompt_name, content };
         return jsonTextResult(payload);
       },
     ),

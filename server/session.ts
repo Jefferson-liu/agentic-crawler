@@ -1,8 +1,20 @@
 import type { WSClient } from "./types.js";
 import { AgentSession } from "./ai-client.js";
 import { chatStore } from "./chat-store.js";
-import { repoProgressBus, type RepoProgressEvent } from "./repo-progress-bus.js";
-import { repoCostLedger } from "./repo-cost-ledger.js";
+
+interface SkillTurnStats {
+  skillNames: Set<string>;
+  usedSkillTool: boolean;
+  sawReadContextSummary: boolean;
+  sawReadFileSummaries: boolean;
+  usedRebuildPath: boolean;
+  filesProcessed: number;
+  filesFailed: number;
+  contextSummaryWriteAttempted: boolean;
+  contextSummaryWriteSucceeded: boolean;
+  cacheFound: boolean | null;
+  summaryFound: boolean | null;
+}
 
 // Session manages a single chat conversation with a long-lived agent
 export class Session {
@@ -13,18 +25,14 @@ export class Session {
   private nextTurnId = 0;
   private pendingTurnQueue: number[] = [];
   private turnAssistantMessageIds: Map<number, string[]> = new Map();
-  private turnRepoCompleteEvents: Map<number, RepoProgressEvent> = new Map();
   private turnToolUseIds: Map<number, Set<string>> = new Map();
   private turnToolNamesById: Map<number, Map<string, string>> = new Map();
+  private turnSkillStats: Map<number, SkillTurnStats> = new Map();
   private lastTotalCostUsd = 0;
-  private unsubscribeRepoProgress: (() => void) | null = null;
 
   constructor(chatId: string) {
     this.chatId = chatId;
-    this.agentSession = new AgentSession(chatId);
-    this.unsubscribeRepoProgress = repoProgressBus.subscribe(chatId, (event) => {
-      this.broadcastRepoProgress(event);
-    });
+    this.agentSession = new AgentSession();
   }
 
   // Start listening to agent output (call once)
@@ -49,6 +57,19 @@ export class Session {
     this.turnAssistantMessageIds.set(turnId, []);
     this.turnToolUseIds.set(turnId, new Set());
     this.turnToolNamesById.set(turnId, new Map());
+    this.turnSkillStats.set(turnId, {
+      skillNames: new Set<string>(),
+      usedSkillTool: false,
+      sawReadContextSummary: false,
+      sawReadFileSummaries: false,
+      usedRebuildPath: false,
+      filesProcessed: 0,
+      filesFailed: 0,
+      contextSummaryWriteAttempted: false,
+      contextSummaryWriteSucceeded: false,
+      cacheFound: null,
+      summaryFound: null,
+    });
 
     // Store user message
     chatStore.addMessage(this.chatId, {
@@ -192,6 +213,7 @@ export class Session {
         const knownToolName = this.turnToolNamesById.get(turnId)?.get(toolUseId);
         const inferredToolName = this.inferToolNameFromToolResult(typedBlock.content);
         const toolName = knownToolName ?? inferredToolName ?? "unknown_tool";
+        this.recordSkillToolResult(turnId, toolName, typedBlock.is_error === true, typedBlock.content);
 
         this.broadcastToolUseEvent({
           turnId,
@@ -240,16 +262,9 @@ export class Session {
 
       if (typeof turnId === "number") {
         const assistantMessageIds = this.turnAssistantMessageIds.get(turnId) || [];
-        const repoCompleteEvent = this.turnRepoCompleteEvents.get(turnId);
 
         if (assistantMessageIds.length === 0) {
-          const fallbackAssistantContent = this.buildFallbackAssistantMessage(
-            message,
-            repoCompleteEvent,
-            cost,
-            error,
-            success,
-          );
+          const fallbackAssistantContent = this.buildFallbackAssistantMessage(message, cost, error, success);
           if (fallbackAssistantContent) {
             const savedMessage = chatStore.addMessage(this.chatId, {
               role: "assistant",
@@ -282,22 +297,10 @@ export class Session {
         }
 
         this.turnAssistantMessageIds.delete(turnId);
-        this.turnRepoCompleteEvents.delete(turnId);
         this.turnToolUseIds.delete(turnId);
         this.turnToolNamesById.delete(turnId);
-
-        repoCostLedger.recordTurnResult({
-          chat_id: this.chatId,
-          turn_id: turnId,
-          timestamp: new Date().toISOString(),
-          success,
-          ...(typeof message?.subtype === "string" ? { subtype: message.subtype } : {}),
-          ...(typeof error === "string" ? { error } : {}),
-          ...(typeof cost === "number" ? { cost_usd: cost } : {}),
-          ...(typeof message?.duration_ms === "number" && Number.isFinite(message.duration_ms)
-            ? { duration_ms: message.duration_ms }
-            : {}),
-        });
+        this.logSkillTurnSummary(turnId, success, error);
+        this.turnSkillStats.delete(turnId);
       }
 
       if (!success) {
@@ -369,7 +372,6 @@ export class Session {
 
   private buildFallbackAssistantMessage(
     message: any,
-    repoCompleteEvent?: RepoProgressEvent,
     turnCostUsd?: number,
     resultError?: string,
     success?: boolean,
@@ -388,26 +390,6 @@ export class Session {
       lines.push(`Turn status: failed (${resultError.trim()}).`);
     } else if (success === false && typeof message?.subtype === "string") {
       lines.push(`Turn status: failed (${message.subtype}).`);
-    }
-
-    if (repoCompleteEvent) {
-      if (!resultText || resultText !== repoCompleteEvent.message) {
-        lines.push(repoCompleteEvent.message);
-      }
-      if (repoCompleteEvent.queue) {
-        const queue = repoCompleteEvent.queue;
-        lines.push(
-          `Queue: completed ${queue.completed}/${queue.total}, failed ${queue.failed}, retries ${queue.retry_count}.`,
-        );
-      }
-      if (repoCompleteEvent.cost) {
-        const cost = repoCompleteEvent.cost;
-        lines.push(
-          `Pipeline cost: total $${cost.total_cost_usd.toFixed(6)} (queue $${cost.queue_cost_usd.toFixed(
-            6,
-          )}, context $${cost.context_cost_usd.toFixed(6)}).`,
-        );
-      }
     }
 
     if (typeof turnCostUsd === "number") {
@@ -442,6 +424,20 @@ export class Session {
         ? input.toolId
         : undefined;
 
+    let toolInput = input.toolInput;
+    if (toolName === "Skill") {
+      const skillName = this.extractSkillName(input.toolInput);
+      const base =
+        toolInput && typeof toolInput === "object" && !Array.isArray(toolInput)
+          ? { ...(toolInput as Record<string, unknown>) }
+          : { raw_input: toolInput };
+      toolInput = {
+        ...base,
+        _is_skill_invocation: true,
+        ...(skillName ? { _skill_name: skillName } : {}),
+      };
+    }
+
     const seenIds = this.turnToolUseIds.get(turnId) ?? new Set<string>();
     this.turnToolUseIds.set(turnId, seenIds);
 
@@ -455,14 +451,191 @@ export class Session {
       this.turnToolNamesById.set(turnId, byId);
     }
 
+    this.recordSkillToolUse(turnId, toolName, toolInput);
+
     this.broadcast({
       type: "tool_use",
       toolName,
       toolId: toolId ?? `${toolName}-${Date.now()}`,
-      toolInput: input.toolInput,
+      toolInput,
       chatId: this.chatId,
       turnId,
     });
+  }
+
+  private recordSkillToolUse(turnId: number, toolName: string, toolInput?: unknown) {
+    const stats = this.turnSkillStats.get(turnId);
+    if (!stats) {
+      return;
+    }
+
+    if (toolName === "Skill") {
+      stats.usedSkillTool = true;
+      const skillName = this.extractSkillName(toolInput);
+      if (skillName) {
+        stats.skillNames.add(skillName);
+      }
+      console.log(
+        `[skill][session=${this.chatId}][turn=${turnId}] started skill=${
+          skillName ?? "unknown"
+        }`,
+      );
+      return;
+    }
+
+    switch (toolName) {
+      case "mcp__file__read_context_summary":
+        stats.sawReadContextSummary = true;
+        break;
+      case "mcp__file__read_file_summaries":
+        stats.sawReadFileSummaries = true;
+        break;
+      case "mcp__file__index_repository_ast":
+        stats.usedRebuildPath = true;
+        break;
+      case "mcp__file__write_file_summary":
+        stats.filesProcessed += 1;
+        break;
+      case "mcp__file__write_context_summary":
+        stats.contextSummaryWriteAttempted = true;
+        break;
+      default:
+        break;
+    }
+  }
+
+  private recordSkillToolResult(
+    turnId: number,
+    toolName: string,
+    isError: boolean,
+    content: unknown,
+  ) {
+    const stats = this.turnSkillStats.get(turnId);
+    if (!stats || !stats.usedSkillTool) {
+      return;
+    }
+
+    if (toolName === "mcp__file__write_file_summary" && isError) {
+      stats.filesFailed += 1;
+      return;
+    }
+
+    if (toolName === "mcp__file__write_context_summary") {
+      stats.contextSummaryWriteAttempted = true;
+      stats.contextSummaryWriteSucceeded = !isError;
+      return;
+    }
+
+    if (toolName === "mcp__file__read_context_summary") {
+      const payload = this.parseToolResultPayload(content);
+      if (payload && typeof payload.found === "boolean") {
+        stats.cacheFound = payload.found;
+      }
+      return;
+    }
+
+    if (toolName === "mcp__file__read_file_summaries") {
+      const payload = this.parseToolResultPayload(content);
+      if (payload && typeof payload.found === "boolean") {
+        stats.summaryFound = payload.found;
+      }
+    }
+  }
+
+  private parseToolResultPayload(
+    content: unknown,
+  ): Record<string, unknown> | undefined {
+    if (typeof content === "string") {
+      try {
+        const parsed = JSON.parse(content);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        return undefined;
+      }
+      return undefined;
+    }
+
+    if (!Array.isArray(content)) {
+      return undefined;
+    }
+
+    for (const block of content) {
+      if (!block || typeof block !== "object") {
+        continue;
+      }
+      const typedBlock = block as { type?: unknown; text?: unknown };
+      if (typedBlock.type !== "text" || typeof typedBlock.text !== "string") {
+        continue;
+      }
+      try {
+        const parsed = JSON.parse(typedBlock.text);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        return undefined;
+      }
+    }
+
+    return undefined;
+  }
+
+  private extractSkillName(toolInput: unknown): string | undefined {
+    if (!toolInput || typeof toolInput !== "object" || Array.isArray(toolInput)) {
+      return undefined;
+    }
+
+    const input = toolInput as Record<string, unknown>;
+    const directCandidates = ["skill_name", "skillName", "name", "skill"];
+
+    for (const key of directCandidates) {
+      const value = input[key];
+      if (typeof value === "string" && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+
+    const command = input.command;
+    if (typeof command === "string" && command.trim().length > 0) {
+      const match = command.match(/\/([a-z0-9-]+)/i);
+      if (match?.[1]) {
+        return match[1];
+      }
+    }
+
+    return undefined;
+  }
+
+  private logSkillTurnSummary(
+    turnId: number,
+    success: boolean,
+    error?: string,
+  ) {
+    const stats = this.turnSkillStats.get(turnId);
+    if (!stats || !stats.usedSkillTool) {
+      return;
+    }
+
+    const skillNames =
+      stats.skillNames.size > 0 ? Array.from(stats.skillNames).join(",") : "unknown";
+    const executionPath = stats.usedRebuildPath
+      ? "rebuild"
+      : stats.cacheFound === true && stats.summaryFound === true
+        ? "cache"
+        : "mixed";
+    const contextWriteStatus = stats.contextSummaryWriteAttempted
+      ? stats.contextSummaryWriteSucceeded
+        ? "success"
+        : "failed"
+      : "not_attempted";
+
+    console.log(
+      `[skill][session=${this.chatId}][turn=${turnId}] completed skill=${skillNames} path=${executionPath} files_processed=${stats.filesProcessed} files_failed=${stats.filesFailed} context_summary_write=${contextWriteStatus} success=${success}${
+        error ? ` error=${error}` : ""
+      }`,
+    );
   }
 
   private summarizeToolResultContent(content: unknown): string {
@@ -547,52 +720,8 @@ export class Session {
     });
   }
 
-  private broadcastRepoProgress(event: RepoProgressEvent) {
-    const activeTurnId = this.getActiveTurnId();
-    if (event.stage === "complete" && typeof activeTurnId === "number") {
-      this.turnRepoCompleteEvents.set(activeTurnId, event);
-    }
-    repoCostLedger.recordRepoProgressEvent(event);
-
-    const kind = event.event_kind ?? "pipeline";
-    const task = event.task_id ? ` task=${event.task_id}` : "";
-    const tool = event.tool_name ? ` tool=${event.tool_name}` : "";
-    const queue = event.queue
-      ? ` queue(total=${event.queue.total},pending=${event.queue.pending},running=${event.queue.running},completed=${event.queue.completed},failed=${event.queue.failed},retries=${event.queue.retry_count})`
-      : "";
-    const cost = event.cost
-      ? ` cost(total=${event.cost.total_cost_usd.toFixed(6)},queue=${event.cost.queue_cost_usd.toFixed(6)},context=${event.cost.context_cost_usd.toFixed(6)})`
-      : "";
-    const error = event.error ? ` error=${event.error}` : "";
-    const permissionDenials =
-      Array.isArray(event.permission_denials) && event.permission_denials.length > 0
-        ? ` permission_denials=${event.permission_denials
-            .map((denial) =>
-              `${denial.tool_name}${denial.tool_use_id ? `#${denial.tool_use_id}` : ""}${
-                denial.tool_input_summary ? `(${denial.tool_input_summary})` : ""
-              }`,
-            )
-            .join(",")}`
-        : "";
-    const heartbeat = event.heartbeat
-      ? ` heartbeat(seq=${event.heartbeat.seq},elapsed_ms=${event.heartbeat.elapsed_ms},idle_ms=${event.heartbeat.idle_ms},last_event=${event.heartbeat.last_event_type ?? "none"},last_tool=${event.heartbeat.last_tool_name ?? "none"},tool_use_count=${event.heartbeat.tool_use_count},tool_progress_count=${event.heartbeat.tool_progress_count},permission_denials_count=${event.heartbeat.permission_denials_count})`
-      : "";
-    console.log(
-      `[repo_progress][session=${this.chatId}][run=${event.run_id}][${event.stage}] kind=${kind}${task}${tool}${permissionDenials}${heartbeat} ${event.message}${queue}${cost}${error}`,
-    );
-
-    this.broadcast({
-      ...event,
-      chatId: this.chatId,
-    });
-  }
-
   // Close the session
   close() {
-    if (this.unsubscribeRepoProgress) {
-      this.unsubscribeRepoProgress();
-      this.unsubscribeRepoProgress = null;
-    }
     this.agentSession.close();
   }
 }

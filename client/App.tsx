@@ -21,67 +21,13 @@ interface Message {
   toolInput?: Record<string, any>;
 }
 
-interface RepoProgressEvent {
-  type: "repo_progress";
-  chat_id: string;
-  run_id: string;
-  repo_address: string;
-  stage: "status" | "index" | "prepare" | "queue" | "context" | "complete";
-  event_kind?: "pipeline" | "task_update" | "tool_use";
-  subagent?: "file-summarizer" | "context-generator" | "repo-orchestrator";
-  task_id?: string;
-  task_status?: "running" | "completed" | "failed";
-  task_cost_usd?: number;
-  tool_name?: string;
-  tool_input_summary?: string;
-  message: string;
-  queue?: {
-    total: number;
-    pending: number;
-    running: number;
-    completed: number;
-    failed: number;
-    retry_count: number;
-  };
-  cost?: {
-    queue_cost_usd: number;
-    context_cost_usd: number;
-    total_cost_usd: number;
-    avg_cost_per_completed_file_usd: number;
-    last_job_cost_usd?: number;
-  };
-  subject?: string;
-  attempt?: number;
-  success?: boolean;
-  error?: string;
-  permission_denials?: Array<{
-    tool_name: string;
-    tool_use_id?: string;
-    tool_input_summary?: string;
-  }>;
-  heartbeat?: {
-    seq: number;
-    elapsed_ms: number;
-    idle_ms: number;
-    last_event_type?: string;
-    last_tool_name?: string;
-    tool_use_count: number;
-    tool_progress_count: number;
-    permission_denials_count: number;
-  };
-  timestamp: string;
-}
-
 interface ChatCostSummary {
   chat_id: string;
   title: string;
   updated_at: string;
   assistant_turn_count: number;
-  repo_run_count: number;
   assistant_message_cost_usd: number;
-  repo_pipeline_cost_usd: number;
   total_cost_usd: number;
-  is_deleted_chat?: boolean;
 }
 
 interface CostSummary {
@@ -90,7 +36,6 @@ interface CostSummary {
     chat_count: number;
     chats_with_cost_count: number;
     assistant_message_total_usd: number;
-    repo_pipeline_total_usd: number;
     total_cost_usd: number;
   };
   per_chat: ChatCostSummary[];
@@ -105,11 +50,8 @@ export default function App() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [repoProgress, setRepoProgress] = useState<RepoProgressEvent | null>(null);
-  const [repoProgressEvents, setRepoProgressEvents] = useState<RepoProgressEvent[]>([]);
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
   const selectedChatIdRef = useRef<string | null>(null);
-  const repoToolEventIdsRef = useRef<Set<string>>(new Set());
   const costSummaryRefreshTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -168,8 +110,7 @@ export default function App() {
         : typeof message?.chat_id === "string"
           ? message.chat_id
           : null;
-    const isForCurrentChat =
-      !messageChatId || messageChatId === selectedChatIdRef.current;
+    const isForCurrentChat = !messageChatId || messageChatId === selectedChatIdRef.current;
 
     switch (message.type) {
       case "connected":
@@ -206,9 +147,6 @@ export default function App() {
 
       case "tool_use":
         if (!isForCurrentChat) break;
-        // Add tool use to messages array so it persists
-        // Alternative: To show tool uses only while pending, store them in a
-        // separate `pendingToolUses` state and clear it on "assistant_message" or "result"
         setMessages((prev) => [
           ...prev,
           {
@@ -227,10 +165,8 @@ export default function App() {
         if (!isForCurrentChat) break;
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.id === message.messageId
-              ? { ...msg, costUsd: message.costUsd }
-              : msg
-          )
+            msg.id === message.messageId ? { ...msg, costUsd: message.costUsd } : msg,
+          ),
         );
         scheduleCostSummaryRefresh(80);
         break;
@@ -249,7 +185,6 @@ export default function App() {
           );
         }
         setIsLoading(false);
-        // Refresh chat list to get updated titles
         void fetchChats();
         scheduleCostSummaryRefresh(120);
         break;
@@ -279,89 +214,6 @@ export default function App() {
         scheduleCostSummaryRefresh(120);
         break;
 
-      case "repo_progress":
-        if (!isForCurrentChat) break;
-        console.log(
-          `[repo_progress][chat=${String(message.chat_id ?? message.chatId ?? "unknown")}][run=${String(
-            message.run_id ?? "unknown",
-          )}][${String(message.stage ?? "unknown")}] ${String(message.message ?? "")}`,
-          message,
-        );
-        if (typeof message.error === "string" && message.error.trim().length > 0) {
-          console.error(
-            `[repo_progress:${String(message.stage ?? "unknown")}] ${message.error}`,
-            message,
-          );
-        } else if (message.success === false) {
-          console.warn(
-            `[repo_progress:${String(message.stage ?? "unknown")}] reported unsuccessful state`,
-            message,
-          );
-        }
-        setRepoProgress(message as RepoProgressEvent);
-        setRepoProgressEvents((prev) => {
-          const next = [...prev, message as RepoProgressEvent];
-          if (next.length > 1000) {
-            next.splice(0, next.length - 1000);
-          }
-          return next;
-        });
-        if (
-          !message.heartbeat &&
-          (message.stage === "complete" ||
-            typeof message.task_cost_usd === "number" ||
-            (message.cost && typeof message.cost.total_cost_usd === "number"))
-        ) {
-          scheduleCostSummaryRefresh(120);
-        }
-        if (message.event_kind === "tool_use" || typeof message.tool_name === "string") {
-          const toolEventKey = [
-            String(message.run_id ?? "unknown-run"),
-            String(message.task_id ?? "unknown-task"),
-            String(message.tool_name ?? "unknown-tool"),
-            String(message.subject ?? ""),
-            typeof message.attempt === "number" ? String(message.attempt) : "",
-            String(message.timestamp ?? ""),
-          ].join("|");
-
-          if (!repoToolEventIdsRef.current.has(toolEventKey)) {
-            repoToolEventIdsRef.current.add(toolEventKey);
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: `repo-tool-${toolEventKey}`,
-                role: "tool_use",
-                content: "",
-                timestamp:
-                  typeof message.timestamp === "string"
-                    ? message.timestamp
-                    : new Date().toISOString(),
-                toolName:
-                  typeof message.tool_name === "string" && message.tool_name.trim().length > 0
-                    ? message.tool_name
-                    : "unknown_tool",
-                toolInput: {
-                  source: "subagent_repo_progress",
-                  subagent: message.subagent,
-                  run_id: message.run_id,
-                  task_id: message.task_id,
-                  stage: message.stage,
-                  subject: message.subject,
-                  attempt: message.attempt,
-                  input_summary: message.tool_input_summary,
-                  event_message: message.message,
-                  task_cost_usd: message.task_cost_usd,
-                  total_cost_usd: message.cost?.total_cost_usd,
-                  queue_cost_usd: message.cost?.queue_cost_usd,
-                  context_cost_usd: message.cost?.context_cost_usd,
-                  permission_denials: message.permission_denials,
-                },
-              },
-            ]);
-          }
-        }
-        break;
-
       case "error":
         console.error("Server error:", message.error);
         setIsLoading(false);
@@ -377,9 +229,7 @@ export default function App() {
       console.log("WebSocket opened");
     },
     onClose: (event) => {
-      console.warn(
-        `WebSocket closed (code=${event.code}, reason=${event.reason || "none"})`,
-      );
+      console.warn(`WebSocket closed (code=${event.code}, reason=${event.reason || "none"})`);
     },
     onError: (event) => {
       console.error("WebSocket error event:", event);
@@ -431,9 +281,6 @@ export default function App() {
     setSelectedChatId(chatId);
     setMessages([]);
     setIsLoading(false);
-    setRepoProgress(null);
-    setRepoProgressEvents([]);
-    repoToolEventIdsRef.current = new Set();
 
     // Subscribe to chat via WebSocket
     sendJsonMessage({ type: "subscribe", chatId });
@@ -456,8 +303,6 @@ export default function App() {
     ]);
 
     setIsLoading(true);
-    setRepoProgress(null);
-    setRepoProgressEvents([]);
 
     // Send via WebSocket
     sendJsonMessage({
@@ -503,8 +348,6 @@ export default function App() {
         messages={messages}
         isConnected={isConnected}
         isLoading={isLoading}
-        repoProgress={repoProgress}
-        repoProgressEvents={repoProgressEvents}
         onSendMessage={handleSendMessage}
         onStopCurrentTurn={handleStopCurrentTurn}
         canStop={Boolean(selectedChatId && isConnected && isLoading)}

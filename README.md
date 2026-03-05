@@ -9,7 +9,7 @@ A demo chat application using the Claude Agent SDK with a React frontend and Exp
 ### Prerequisites
 
 - Node.js 18+
-- Claude Agent SDK credentials (set `ANTHROPIC_API_KEY` environment variable)
+- Claude Agent SDK credentials (set `ANTHROPIC_API_KEY`)
 
 ### Installation
 
@@ -23,79 +23,48 @@ npm install
 npm run dev
 ```
 
-This starts both:
-- **Backend** (Express + WebSocket) on http://localhost:4111
-- **Frontend** (Vite + React) on http://localhost:5173
+This starts both services:
+- Backend (Express + WebSocket) on `http://localhost:4111`
+- Frontend (Vite + React) on `http://localhost:5173`
 
-Open http://localhost:5173 in your browser.
+Open `http://localhost:5173` in your browser.
 
-## MCP Harness
+## Skill-Based Repo Analysis
 
-Use the MCP harness to debug tools directly or run an explicit repo-team pipeline test.
+Repository crawling and architecture analysis are orchestrated by a project skill:
+- Skill path: `.claude/skills/repo-crawling-analysis/SKILL.md`
+- Runtime toggle: `REPO_ANALYSIS_SKILL_ENABLED=1` (default enabled)
+- Skill discovery source: SDK settings sources `user` + `project`
 
-### Agent-mode (default)
+When enabled, the agent can invoke the `Skill` tool and then use the repo MCP tools for deterministic crawl steps.
 
-This validates the production flow:
-- top-level agent delegates to `repo-knowledge`
-- `repo-knowledge` calls `run_repo_knowledge_team_pipeline`
-- backend worker pool runs file summarizers + context generation without nested subagents
+### Refresh command
 
-```bash
-npm run test:mcp -- --repo .
-```
+Use `/repo refresh` in chat to force rebuild (index + summary regeneration) instead of cache reuse.
 
-Optional flags:
-- `--force-refresh` / `--no-force-refresh`
-- `--timeout-ms 600000`
-- `--output data/mcp-test-output-agent.txt`
+## Debug Tips
 
-### Tool-mode (low-level debugging)
+- Watch backend logs for skill lifecycle lines:
+  - `[skill][session=...][turn=...] started ...`
+  - `[skill][session=...][turn=...] completed ...`
+- Tool stream in the UI will show `Skill` tool calls with `_is_skill_invocation: true` metadata.
+- If you need to disable skills temporarily, set `REPO_ANALYSIS_SKILL_ENABLED=0`.
 
-```bash
-npm run test:mcp:tool -- --repo .
-```
+## Features
 
-Optional flags:
-- `--with-writes` (runs manual debug fixture writes)
-- `--reset-store` (calls `prepare_file_summaries_store`)
-- `--include-directory` (includes `return_directory` output)
-- `--output data/mcp-test-output-tool.txt`
-
-### Transcript files
-
-- Agent mode default: `data/mcp-test-output-agent.txt`
-- Tool mode default: `data/mcp-test-output-tool.txt`
-
-Agent mode transcript includes:
-- surfaced SDK events
-- tool use/input + tool result payloads
-- repo-team pipeline verification
-- artifact validation diagnostics
-
-## Repo Team Pipeline Settings
-
-Optional environment knobs (defaults shown):
-
-- `REPO_TEAM_MAX_WORKERS=4`
-- `REPO_TEAM_RETRY_LIMIT=1`
-- `REPO_TEAM_RETRY_BACKOFF_MS=750`
-- `REPO_TEAM_FILE_TIMEOUT_MS=120000`
-- `REPO_TEAM_CONTEXT_TIMEOUT_MS=120000`
-- `REPO_TEAM_CONTEXT_HEARTBEAT_MS=5000`
-
-The backend emits websocket `repo_progress` events while the queue runs so the client can display live status.
+- Multi-chat UI with persistent in-memory transcript per chat
+- Live assistant/tool-use streaming over WebSocket
+- Per-turn and per-chat assistant cost tracking
+- Skill-driven repository analysis orchestration
 
 ## Production Considerations
 
 This is an example app for demonstration purposes. For production use, consider:
 
-1. **Isolate the Agent SDK** - Move the SDK into a separate container/service. This provides better security isolation since the agent has access to tools like Bash, file system operations, and web requests.
-
-2. **Persistent storage** - Replace the in-memory `ChatStore` with a database. Currently all chats are lost on server restart.
-
-3. **Transcript syncing** - For Agent Sessions to be persisted across server restarts, you'll need to persist and restore the SDK's conversation transcripts. The SDK maintains internal state for multi-turn conversations that must be synced with your storage.
-
-4. **Authentication** - Add user authentication and authorization. Currently anyone can access any chat.
+1. Isolate the Agent SDK in a separate service/container.
+2. Replace the in-memory `ChatStore` with persistent storage.
+3. Persist and restore SDK conversation transcripts across restarts.
+4. Add authentication and authorization.
 
 ## Demo
 
