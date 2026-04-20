@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:mastra.ai)",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(npm install *)",
+      "Bash(npm info *)",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\); const v=JSON.parse\\(d\\); console.log\\(v.filter\\(x=>x.startsWith\\('1.3'\\)\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(gh api *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/mastra-ai/mastra/main/docs/src/pages/docs/agents/01-agent-memory.mdx\")",
+      "Bash(curl -s \"https://api.github.com/repos/mastra-ai/mastra/contents/docs/src/pages/docs/agents\")",
+      "Bash(python3 -c \"import sys,json; [print\\(x['name']\\) for x in json.load\\(sys.stdin\\)]\")",
+      "Bash(curl -s \"https://api.github.com/search/code?q=InMemoryStore+repo:mastra-ai/mastra+language:TypeScript\" -H \"Accept: application/vnd.github.v3+json\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(x['path'], x['html_url']\\) for x in d.get\\('items',[]\\)]\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/mastra-ai/mastra/main/packages/core/src/storage/in-memory.ts\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/mastra-ai/mastra/main/packages/core/src/index.ts\")",
+      "Bash(ls \"c:\\\\\\\\Users\\\\\\\\ttuki\\\\\\\\Desktop\\\\\\\\coding stuff\\\\\\\\context-retrieval-backend\\\\\\\\context-retrieval-agent-test\\\\\\\\backend\\\\\\\\node_modules\\\\\\\\@mastra\\\\\\\\\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('version:', d.get\\('version'\\)\\); print\\('exports keys:', list\\(d.get\\('exports',{}\\).keys\\(\\)\\)[:20]\\)\")",
+      "Bash(grep -r \"InMemory\" node_modules/@mastra/core/dist/storage/ --include=\"*.d.ts\" -l)",
+      "Bash(grep -r \"InMemory\" node_modules/@mastra/core/dist/storage/ --include=\"*.js\" -l)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('version:', d.get\\('version'\\)\\)\")",
+      "Read(//c/Users/ttuki/Desktop/coding stuff/Jobber/**)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\ttuki\\Desktop\\coding stuff\\context-retrieval-backend\\context-retrieval-agent-test"
+    ]
+  }
+}

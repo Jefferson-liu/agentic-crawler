@@ -3,6 +3,7 @@ import cors from 'cors';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { config } from './config.js';
 import { chatRouter } from './routes/chat.js';
+import { initContextAgent } from './agent/agent.js';
 
 const app = express();
 
@@ -32,6 +33,11 @@ app.get('/health', (_req, res) => {
 
 app.use('/api/chat', chatRouter);
 
-app.listen(config.port, () => {
-  console.log(`agent-service listening on http://localhost:${config.port}`);
+initContextAgent().then(() => {
+  app.listen(config.port, () => {
+    console.log(`agent-service listening on http://localhost:${config.port}`);
+  });
+}).catch((err) => {
+  console.error('[Startup] Failed to initialize agent:', err);
+  process.exit(1);
 });
