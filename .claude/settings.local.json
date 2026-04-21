@@ -21,7 +21,8 @@
       "Bash(grep -r \"InMemory\" node_modules/@mastra/core/dist/storage/ --include=\"*.d.ts\" -l)",
       "Bash(grep -r \"InMemory\" node_modules/@mastra/core/dist/storage/ --include=\"*.js\" -l)",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('version:', d.get\\('version'\\)\\)\")",
-      "Read(//c/Users/ttuki/Desktop/coding stuff/Jobber/**)"
+      "Read(//c/Users/ttuki/Desktop/coding stuff/Jobber/**)",
+      "Bash(npx tsc *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\ttuki\\Desktop\\coding stuff\\context-retrieval-backend\\context-retrieval-agent-test"

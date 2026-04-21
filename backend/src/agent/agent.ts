@@ -2,6 +2,7 @@ import { Agent } from '@mastra/core/agent';
 import { LibSQLStore } from '@mastra/libsql';
 import { Memory } from '@mastra/memory';
 import { mcpClient } from './mcp-client.js';
+import { getActiveRunId } from './scope-store.js';
 
 const modelName = 'claude-sonnet-4-6';
 
@@ -17,10 +18,28 @@ export const agentMemory = new Memory({
 
 export let contextAgent: Agent;
 
+// Wrap each MCP tool so run_id is injected deterministically at call time.
+// The LLM never sees run_id as a parameter it can influence.
+function wrapToolsWithScope(tools: Record<string, any>): Record<string, any> {
+  const wrapped: Record<string, any> = {};
+  for (const [name, tool] of Object.entries(tools)) {
+    wrapped[name] = {
+      ...tool,
+      execute: async (args: Record<string, unknown>, options: unknown) => {
+        const run_id = getActiveRunId();
+        const injected = run_id ? { ...args, run_id } : args;
+        return tool.execute(injected, options);
+      },
+    };
+  }
+  return wrapped;
+}
+
 export async function initContextAgent() {
-  let mcpTools: Record<string, unknown> = {};
+  let mcpTools: Record<string, any> = {};
   try {
-    mcpTools = await mcpClient.listTools();
+    const raw = await mcpClient.listTools();
+    mcpTools = wrapToolsWithScope(raw as Record<string, any>);
     console.log(`[Agent] MCP tools loaded: ${Object.keys(mcpTools).join(', ')}`);
   } catch (err) {
     console.warn('[Agent] MCP server unavailable, starting without MCP tools:', err instanceof Error ? err.message : err);
@@ -45,7 +64,7 @@ export async function initContextAgent() {
       '- Include uncertainty when data is missing or ambiguous.',
     ].join('\n'),
     model: `anthropic/${modelName}`,
-    tools: mcpTools as Record<string, any>,
+    tools: mcpTools,
     memory: agentMemory,
   });
 }

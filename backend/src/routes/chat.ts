@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { contextAgent, agentMemory } from '../agent/agent.js';
+import { setActiveRunId } from '../agent/scope-store.js';
 
 const RESOURCE_ID = 'default-user';
 
 const chatBody = z.object({
   message: z.string().min(1),
   threadId: z.string().min(1),
+  run_id: z.string().optional(),
 });
 
 export const chatRouter = Router();
@@ -124,41 +126,99 @@ chatRouter.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Invalid request body' });
   }
 
-  const { message: userMessage, threadId } = parsed.data;
+  const { message: userMessage, threadId, run_id } = parsed.data;
   console.log(`\n[Chat] ══════════════════════════════════════════`);
   console.log(`[Chat] Message  : "${userMessage}"`);
   console.log(`[Chat] Thread   : ${threadId}`);
+  console.log(`[Chat] run_id   : ${run_id ?? '(none)'}`);
+
+  const wantsStream = req.headers.accept?.includes('text/event-stream');
+
+  // Inject run_id so MCP tool wrappers pick it up for this request
+  setActiveRunId(run_id ?? null);
+
+  if (!wantsStream) {
+    // Non-streaming fallback
+    let stepCount = 0;
+    try {
+      const result = await contextAgent.generate(userMessage, {
+        memory: { resource: RESOURCE_ID, thread: threadId },
+        onStepFinish: (step: any) => { logStep(++stepCount, step); },
+      });
+      const toolCalls = (result.steps ?? []).flatMap((step: any) =>
+        (step.toolResults ?? []).map((tr: any) => {
+          const p = tr.payload ?? tr;
+          return { name: p.toolName ?? '(unknown)', args: p.args, result: p.result };
+        })
+      );
+      return res.json({ reply: result.text, toolCalls });
+    } catch (error) {
+      console.error('[Chat] Agent generation failed:', error);
+      return res.status(500).json({
+        error: 'Agent generation failed',
+        details: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  // Streaming path — SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const sendEvent = (payload: object) => {
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  };
 
   let stepCount = 0;
 
   try {
     const result = await contextAgent.generate(userMessage, {
       memory: { resource: RESOURCE_ID, thread: threadId },
-      onStepFinish: (step: any) => {
-        logStep(++stepCount, step);
-      },
+      onStepFinish: (step: any) => { logStep(++stepCount, step); },
     });
 
-    console.log(`[Chat] Final reply: "${result.text}"`);
-    console.log(`[Chat] ══════════════════════════════════════════\n`);
+    const steps: any[] = (result as any).steps ?? [];
 
-    const toolCalls = (result.steps ?? []).flatMap((step: any) =>
-      (step.toolResults ?? []).map((tr: any) => {
+    // Intermediate steps (ending in tool-calls) contain pre-answer reasoning.
+    // The last step (ending in stop) is the real answer.
+    const thinkingText = steps
+      .slice(0, -1)
+      .map((s: any) => (s.text ?? '').trim())
+      .filter(Boolean)
+      .join('\n\n');
+
+    const finalText: string =
+      steps.length > 0
+        ? ((steps[steps.length - 1].text ?? '') || result.text)
+        : result.text;
+
+    const toolCalls = steps.flatMap((s: any) =>
+      (s.toolResults ?? []).map((tr: any) => {
         const p = tr.payload ?? tr;
-        return {
-          name: p.toolName ?? '(unknown)',
-          args: p.args,
-          result: p.result,
-        };
+        return { name: p.toolName ?? '(unknown)', args: p.args, result: p.result };
       })
     );
 
-    return res.json({ reply: result.text, toolCalls });
+    console.log(`[Chat] ══════════════════════════════════════════\n`);
+
+    // Send thinking (if any) up front so the client can render the collapsed tab
+    if (thinkingText) {
+      sendEvent({ type: 'thinking', text: thinkingText });
+    }
+
+    // Stream the final answer character-by-character so the typing cursor shows
+    const CHUNK = 4;
+    for (let i = 0; i < finalText.length; i += CHUNK) {
+      sendEvent({ type: 'text', text: finalText.slice(i, i + CHUNK) });
+    }
+
+    sendEvent({ type: 'done', toolCalls });
+    res.end();
   } catch (error) {
-    console.error('[Chat] Agent generation failed:', error);
-    return res.status(500).json({
-      error: 'Agent generation failed',
-      details: error instanceof Error ? error.message : String(error),
-    });
+    console.error('[Chat] Stream failed:', error);
+    sendEvent({ type: 'error', message: error instanceof Error ? error.message : String(error) });
+    res.end();
   }
 });
