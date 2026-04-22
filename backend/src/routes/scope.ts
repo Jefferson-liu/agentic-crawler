@@ -1,26 +1,9 @@
 import { Router } from 'express';
-import { z } from 'zod';
-import { clearActiveScope, setActiveScope } from '../agent/scope-store.js';
 
 export const scopeRouter = Router();
 
-const scopeBody = z.object({
-  repoFullName: z.string().min(1),
-});
-
-// Set active scope when user selects a repo as context
-scopeRouter.post('/', (req, res) => {
-  const parsed = scopeBody.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'repoFullName required' });
-  }
-  const userId = parsed.data.repoFullName.replace('/', '__');
-  setActiveScope('demo_tenant', userId);
-  return res.json({ ok: true });
-});
-
-// Reset scope to defaults when user clears context
-scopeRouter.delete('/', (_req, res) => {
-  clearActiveScope();
-  return res.json({ ok: true });
+// This route is no longer used now that run_id is injected directly per chat
+// request. Keep a harmless stub so the file still compiles if it is imported.
+scopeRouter.all('/', (_req, res) => {
+  return res.status(410).json({ error: 'Scope route deprecated; use /api/chat run_id instead.' });
 });

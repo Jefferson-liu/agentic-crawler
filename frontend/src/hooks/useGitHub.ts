@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ActiveContext, AvailableContext, GitHubRepo, GitHubUser, PipelineRun, StageRecord } from '../types';
 
 const TERMINAL = new Set(['completed', 'failed']);
+type RepoIndexOptions = {
+  forceRefileSummary?: boolean;
+};
 
 function buildStageRecord(r: PipelineRun): StageRecord | null {
   switch (r.status) {
@@ -235,7 +238,7 @@ export function useGitHub(agentApiBase: string) {
   }, [agentApiBase]);
 
   const indexRepo = useCallback(
-    async (repo: GitHubRepo) => {
+    async (repo: GitHubRepo, options?: RepoIndexOptions) => {
       const res = await fetch(`${contextApiBase}/repo-knowledge/pipeline-runs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -244,6 +247,7 @@ export function useGitHub(agentApiBase: string) {
           source_path: repo.clone_url,
           git_token: pat,
           repo_address: repo.full_name,
+          force_refile_summary: Boolean(options?.forceRefileSummary),
         }),
       });
       if (!res.ok) throw new Error(`Pipeline start failed: ${res.status}`);
@@ -263,8 +267,10 @@ export function useGitHub(agentApiBase: string) {
   );
 
   const retryRun = useCallback(
-    async (repo: GitHubRepo, failedRun: PipelineRun) => {
+    async (repo: GitHubRepo, failedRun: PipelineRun, options?: RepoIndexOptions) => {
+      const forceRefileSummary = Boolean(options?.forceRefileSummary);
       const canResume =
+        !forceRefileSummary &&
         failedRun.fileSummaryRunId &&
         failedRun.fileSummaryRunStatus === 'completed';
 
@@ -273,6 +279,7 @@ export function useGitHub(agentApiBase: string) {
         source_path: repo.clone_url,
         git_token: pat,
         repo_address: repo.full_name,
+        force_refile_summary: forceRefileSummary,
       };
 
       if (canResume) {

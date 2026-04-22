@@ -1,7 +1,9 @@
 import type { UseGitHubReturn } from '../hooks/useGitHub';
 import { RepoBrowser } from './RepoBrowser';
 
-type Props = Omit<UseGitHubReturn, 'connectPAT' | 'connectError' | 'pat' | 'availableContexts' | 'activeContext' | 'activateContext' | 'clearActiveContext'>;
+type Props = Omit<UseGitHubReturn, 'connectPAT' | 'connectError' | 'pat' | 'availableContexts' | 'activeContext' | 'activateContext' | 'clearActiveContext'> & {
+  contextApiBase: string;
+};
 
 export function GitHubConnectedView({
   user,
@@ -9,6 +11,7 @@ export function GitHubConnectedView({
   reposLoading,
   reposError,
   pipelineRuns,
+  contextApiBase,
   disconnectPAT,
   indexRepo,
   retryRun,
@@ -31,6 +34,7 @@ export function GitHubConnectedView({
         reposLoading={reposLoading}
         reposError={reposError}
         pipelineRuns={pipelineRuns}
+        contextApiBase={contextApiBase}
         onIndexRepo={indexRepo}
         onRetryRun={retryRun}
         onCancelRun={cancelRun}

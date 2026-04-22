@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { GitHubRepo, PipelineRun } from '../types';
 import { PipelineProgress } from './PipelineProgress';
+import { RunDiagnosticsModal } from './RunDiagnosticsModal';
 
 // Subset of GitHub's language color map
 const LANG_COLORS: Record<string, string> = {
@@ -17,22 +18,47 @@ type Props = {
   reposLoading: boolean;
   reposError: string | null;
   pipelineRuns: PipelineRun[];
-  onIndexRepo: (repo: GitHubRepo) => void;
-  onRetryRun: (repo: GitHubRepo, failedRun: PipelineRun) => void;
+  contextApiBase: string;
+  onIndexRepo: (repo: GitHubRepo, options?: { forceRefileSummary?: boolean }) => void;
+  onRetryRun: (repo: GitHubRepo, failedRun: PipelineRun, options?: { forceRefileSummary?: boolean }) => void;
   onCancelRun: (runId: string) => void;
 };
 
-export function RepoBrowser({ repos, reposLoading, reposError, pipelineRuns, onIndexRepo, onRetryRun, onCancelRun }: Props) {
+export function RepoBrowser({ repos, reposLoading, reposError, pipelineRuns, contextApiBase, onIndexRepo, onRetryRun, onCancelRun }: Props) {
   const [query, setQuery] = useState('');
   const [indexingError, setIndexingError] = useState<string | null>(null);
+  const [diagnosticsRun, setDiagnosticsRun] = useState<PipelineRun | null>(null);
+  const [forceRefileSummary, setForceRefileSummary] = useState(() => {
+    try {
+      return localStorage.getItem('force-refile-summary') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
-  const filtered = query.trim()
+  useEffect(() => {
+    try {
+      localStorage.setItem('force-refile-summary', String(forceRefileSummary));
+    } catch {
+      // ignore localStorage failures
+    }
+  }, [forceRefileSummary]);
+
+  function runSortKey(run: PipelineRun | undefined): number {
+    if (!run) return 3;
+    if (run.status === 'completed') return 0;
+    if (!TERMINAL.has(run.status)) return 1; // active
+    return 2; // failed
+  }
+
+  const filtered = (query.trim()
     ? repos.filter(
         (r) =>
           r.name.toLowerCase().includes(query.toLowerCase()) ||
           (r.description ?? '').toLowerCase().includes(query.toLowerCase())
       )
-    : repos;
+    : repos
+  ).slice().sort((a, b) => runSortKey(getRunForRepo(a)) - runSortKey(getRunForRepo(b)));
 
   function getRunForRepo(repo: GitHubRepo): PipelineRun | undefined {
     return pipelineRuns.find((r) => r.repoFullName === repo.full_name);
@@ -41,7 +67,7 @@ export function RepoBrowser({ repos, reposLoading, reposError, pipelineRuns, onI
   async function handleIndex(repo: GitHubRepo) {
     setIndexingError(null);
     try {
-      await onIndexRepo(repo);
+      await onIndexRepo(repo, { forceRefileSummary });
     } catch (err) {
       setIndexingError(err instanceof Error ? err.message : String(err));
     }
@@ -50,7 +76,7 @@ export function RepoBrowser({ repos, reposLoading, reposError, pipelineRuns, onI
   async function handleRetry(repo: GitHubRepo, failedRun: PipelineRun) {
     setIndexingError(null);
     try {
-      await onRetryRun(repo, failedRun);
+      await onRetryRun(repo, failedRun, { forceRefileSummary });
     } catch (err) {
       setIndexingError(err instanceof Error ? err.message : String(err));
     }
@@ -83,21 +109,38 @@ export function RepoBrowser({ repos, reposLoading, reposError, pipelineRuns, onI
     }
     if (run.status === 'failed') {
       return (
-        <button className="repo-index-btn" onClick={() => handleRetry(repo, run)}>
-          Retry
-        </button>
+        <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', flexShrink: 0 }}>
+          <button className="repo-details-btn" onClick={() => setDiagnosticsRun(run)} title="View diagnostics">
+            Details
+          </button>
+          <button className="repo-index-btn" onClick={() => handleRetry(repo, run)}>
+            Retry
+          </button>
+        </div>
       );
     }
     // completed
     return (
-      <button className="repo-index-btn" onClick={() => handleIndex(repo)}>
-        Re-index
-      </button>
+      <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', flexShrink: 0 }}>
+        <button className="repo-details-btn" onClick={() => setDiagnosticsRun(run)} title="View diagnostics">
+          Details
+        </button>
+        <button className="repo-index-btn" onClick={() => handleIndex(repo)}>
+          Re-index
+        </button>
+      </div>
     );
   }
 
   return (
     <div>
+      {diagnosticsRun && (
+        <RunDiagnosticsModal
+          run={diagnosticsRun}
+          contextApiBase={contextApiBase}
+          onClose={() => setDiagnosticsRun(null)}
+        />
+      )}
       <div className="repo-search-wrapper">
         <input
           className="repo-search-input"
@@ -106,6 +149,14 @@ export function RepoBrowser({ repos, reposLoading, reposError, pipelineRuns, onI
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+        <label className="repo-option-toggle">
+          <input
+            type="checkbox"
+            checked={forceRefileSummary}
+            onChange={(e) => setForceRefileSummary(e.target.checked)}
+          />
+          <span>Force re-summarize files</span>
+        </label>
       </div>
       {indexingError && <p className="github-auth-error" style={{ padding: '0 0.75rem' }}>{indexingError}</p>}
       {reposLoading && <p className="empty-text">Loading repos…</p>}
