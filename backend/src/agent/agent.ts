@@ -46,6 +46,29 @@ function makeMcpClient(): MCPClient {
   });
 }
 
+// Unwrap the standard MCP `{ content: [{ type: 'text', text: '<json>' }] }` envelope.
+// Mastra otherwise feeds this whole shape back to the model as JSON.stringify(envelope),
+// so the model sees the payload wrapped, escaped, and re-stringified (~2x token cost
+// and noisier output). We parse the inner JSON once and hand Mastra a plain object.
+function unwrapMcpResult(result: unknown): unknown {
+  if (!result || typeof result !== 'object') return result;
+  const r = result as any;
+  if (r.isError) return r;
+  const content = r.content;
+  if (!Array.isArray(content) || content.length === 0) return result;
+
+  // Concatenate all text parts (almost always just one) and try to parse JSON.
+  const textParts = content.filter((c: any) => c?.type === 'text' && typeof c.text === 'string');
+  if (textParts.length === 0 || textParts.length !== content.length) return result;
+
+  const combined = textParts.map((c: any) => c.text).join('');
+  try {
+    return JSON.parse(combined);
+  } catch {
+    return combined;
+  }
+}
+
 // Wrap each MCP tool so run_id is injected deterministically at call time.
 // The LLM never sees run_id as a parameter it can influence.
 function wrapToolsWithScope(tools: Record<string, any>): Record<string, any> {
@@ -56,7 +79,8 @@ function wrapToolsWithScope(tools: Record<string, any>): Record<string, any> {
       execute: async (args: Record<string, unknown>, options: unknown) => {
         const run_id = getActiveRunId();
         const injected = run_id ? { ...args, run_id } : args;
-        return tool.execute(injected, options);
+        const raw = await tool.execute(injected, options);
+        return unwrapMcpResult(raw);
       },
     };
   }
