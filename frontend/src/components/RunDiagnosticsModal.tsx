@@ -205,10 +205,10 @@ export function RunDiagnosticsModal({ run, contextApiBase, onClose }: Props) {
                   )}
                   {data.fileDiagnostics.length > 0 && (
                     <div className="diag-sub-section">
-                      <div className="diag-sub-title">File errors ({data.fileDiagnostics.length})</div>
+                      <div className="diag-sub-title">File diagnostics ({data.fileDiagnostics.length})</div>
                       <div className="diag-diagnostics-list">
                         {data.fileDiagnostics.map((d, i) => (
-                          <div key={i} className={`diag-diagnostic-item diag-severity-${(d.severity ?? 'error').toLowerCase()}`}>
+                          <div key={i} className={`diag-diagnostic-item diag-severity-${(d.severity ?? 'warning').toLowerCase()}`}>
                             <div className="diag-diagnostic-path">{d.subject_path ?? '(unknown)'}</div>
                             <div className="diag-diagnostic-msg">{d.message}</div>
                           </div>
